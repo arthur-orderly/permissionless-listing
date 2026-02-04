@@ -1,5 +1,9 @@
 # Orderly Perps 上架參數與規則
 
+> 相關文件：[Permissionless Listing PRD](./Permissionless%20Listing%20-%20Chinese.md) | [Frontend Requirements](./Permissionless_Listing_Frontend_Requirements.md) | [Slashing System](./Slashing_System.md)
+
+---
+
 ## 1. 參考資源
 
 參考交易所：
@@ -355,3 +359,97 @@ mm_config (account, symbol, start_date, sample_seconds, uptime_pct)
 | MM Account 監控 | 僅 Permissionless 需監控 | 需同步 |
 | Funding Rate 監控 | 已新增 | 需同步 |
 | 單一價格來源限制 | Max OI 降低 50% | 需同步 |
+
+
+# 6. Post-listing Risk Control (From PRD)
+
+# 7. 上架後（Post-listing）
+
+## 7.1 監控項目
+
+| 監控項 | 檢查內容 | 檢查頻率 |
+|--------|----------|----------|
+| 價格來源狀態 | 來源是否可用、更新頻率 | 每 10 秒 |
+| 價格偏離 | 各來源價格偏離度 | 每 10 秒 |
+| 流動性深度 | ±2% 深度是否 >= $10,000 | 每 1 分鐘 |
+| 清算頻率 | 每小時清算次數是否異常 | 每 1 小時 |
+| IF Account | 餘額是否 >= 最低要求 | 每 1 分鐘 |
+| Liquidation Account | 餘額是否 >= 最低要求 | 每 1 分鐘 |
+
+---
+
+## 7.2 事件分級與處置
+
+| 等級 | 觸發條件 | 處置動作 | 解除條件 |
+|------|----------|----------|----------|
+| Warning | IF < 120% min_balance | 通知項目方 | IF >= 120% min_balance |
+| Warning | 流動性深度 < $10,000 | 通知項目方 | 深度 >= $10,000 持續 10 分鐘 |
+| Limit | IF < 80% min_balance | Reduce-only mode | IF >= 100% min_balance |
+| Limit | 價格來源 = 0 | Reduce-only mode | 價格來源 >= 1 |
+| Emergency | IF < 50% min_balance | Delist | 需人工審核恢復 |
+| Emergency | 穿倉且 IF 不足 | Delist + ADL | 需人工審核恢復 |
+
+### IF 餘額狀態與系統動作
+
+| IF 狀態 | 系統動作 |
+|---------|----------|
+| < 150% min | 通知項目方補充 IF |
+| < 120% min | 限制新開倉（僅允許減倉） |
+| < 100% min | 降低該 Symbol 最大槓桿 |
+| < 80% min | 降低 Global Max OI |
+| < 50% min | Emergency Delist |
+
+---
+
+## 7.3 清算與 IF 扣款流程
+
+```
+用戶倉位觸發清算
+  │
+  ▼
+系統執行清算，計算損益
+  │
+  ├─── 清算盈餘 > 0
+  │         │
+  │         ▼
+  │    盈餘轉入 IF Account
+  │         │
+  │         ▼
+  │       結束
+  │
+  └─── 清算虧損（穿倉）
+            │
+            ▼
+      檢查 IF Available Amount
+            │
+            ├─── 足夠
+            │      │
+            │      ▼
+            │   從 IF 扣除虧損
+            │      │
+            │      ▼
+            │   檢查 IF 餘額狀態 → 觸發對應 Warning/Limit
+            │      │
+            │      ▼
+            │    結束
+            │
+            └─── 不足
+                   │
+                   ▼
+              扣除 IF 全部餘額
+                   │
+                   ▼
+              剩餘虧損觸發 ADL
+                   │
+                   ▼
+              Emergency Delist
+                   │
+                   ▼
+              通知項目方
+                   │
+                   ▼
+                 結束
+```
+
+---
+
