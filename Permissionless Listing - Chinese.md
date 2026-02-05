@@ -160,25 +160,15 @@ MM Account 需先建立，上架 Symbol 時再選擇綁定。
 
 ## 6.1 上架流程
 
-```mermaid
-flowchart TD
-    Submit[填寫資料] --> PreCheck{Pre-check}
-    PreCheck -->|失敗/修改| Submit
-    PreCheck --> Preview[預覽參數]
-    Preview --> SetTime[設定上架時間 T]
-    SetTime --> CheckTime{驗證時間 T}
-    
-    CheckTime -->|No| SetTime
-    CheckTime -->|Yes| Confirm[確認提交]
-    
-    Confirm -->|CEFI| AddSymbol[發送 addSymbol 至合約]
-    AddSymbol --> Pending((Pending 狀態))
-    
-    Pending -->|等待時間 T 到達| PostOnly((Post-only 狀態))
-    Pending -->|項目方修改設定| Pending
-    
-    PostOnly -->|市場深度達標| Active((Active 狀態))
-```
+| 階段 | 觸發條件 | 執行者 | 動作 |
+|------|---------|--------|------|
+| 提交 | 用戶確認 | CEFI | Pre-check → 建立 Pending Record |
+| 上傳 | Pre-check 通過 | Operator | 上傳 symbol, symbolHash, symbolContractID |
+| 同步 | Contract Event | Indexer | 同步狀態至 CEFI |
+| 等待 | - | CEFI | 等待時間 T 到達 |
+| Post-only | 時間 T 到達 | CEFI | 開放 MM 掛單，監控深度 |
+| Active | 深度達標 | CEFI | 開放所有用戶交易 |
+
 **上架時間規則：**
 - T 必須 >= 當前時間 + 1 小時
 - T 必須為整點時間（例：現在 14:35，最早可選 16:00）
@@ -216,14 +206,7 @@ sequenceDiagram
     CEFI-->>User: 上線完成
 ```
 
-| 階段 | 觸發條件 | 執行者 | 動作 |
-|------|---------|--------|------|
-| 提交 | 用戶確認 | CEFI | Pre-check → 建立 Pending Record |
-| 上傳 | Pre-check 通過 | Operator | 上傳 symbol, symbolHash, symbolContractID |
-| 同步 | Contract Event | Indexer | 同步狀態至 CEFI |
-| 等待 | - | CEFI | 等待時間 T 到達 |
-| Post-only | 時間 T 到達 | CEFI | 開放 MM 掛單，監控深度 |
-| Active | 深度達標 | CEFI | 開放所有用戶交易 |
+
 
 ---
   
