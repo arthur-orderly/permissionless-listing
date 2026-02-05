@@ -27,13 +27,13 @@
 ## 2.1 產品目標
 1. 無許可上幣：賦能符合資格 Broker 自行配置參數並上架 Symbol
 2. 自動化風控：建立價格、流動性與保證金的自動化檢查機制，取代人工審核
-3. 風險隔離：確保單一項目方穿倉損失由獨立 IF 承擔，不影響平台與其他項目；ADL 僅針對特定 Symbol 執行（除平台主 IF 觸發外）
+3. 風險隔離：每個 Broker 僅有一個獨立 IF，覆蓋其所有 Symbols；該 Broker 的穿倉損失僅由其 IF 承擔，不影響平台與其他項目；ADL 僅針對特定 Symbol 執行（除平台主 IF 觸發外）
 4. 維持標準：確保無許可上架 Symbol 仍具備完整的價格、保險、清算與流動性風控要素
 
 ## 2.2 業務目標
 1. 生態擴展：大幅提升可交易 Symbol 的數量與上架速度，促進交易量增長
 2. 責任轉移：
-   - 項目方需自行擔任做市商 (MM) 並提供該 Symbol 的獨立風險基金 (IF)
+   - 項目方需自行擔任做市商 (MM) 並提供該 Symbol 的 IF(可以與其他同一項目方的Symbol共用)
    - 平台回歸技術提供者角色，專注於撮合與清算服務
 3. 收益共享：提供 30%-50% 的交易手續費分潤作為激勵，吸引優質項目方參與
 
@@ -47,11 +47,12 @@
 | 2 | 帳號要求 | Broker 必須配置完整的帳號體系（IF、Fee、Liquidation、MM Account）才能進行上架 |
 | 3 | 風控一致性 | 除上架流程外，交易層面的風控規則（如保證金計算、清算邏輯）與現有系統保持一致 |
 | 4 | 一次性流程 | 本期僅支援「首次上架」，不支援無許可重新上架 (Re-listing)；若需重新上架需透過人工流程處理 |
-| 5 | 參數變更 | 上架後的部分參數修改暫不開放項目方自行修改，需由 Orderly Admin 協助|
+| 5 | 參數變更 | 上架後僅允許項目方調整「手續費加成 (Fee Markup)」與「Max Notional」；其他參數需由 Orderly Admin 協助 |
 | 6 | 資金隔離 | 項目方 IF 與平台主 IF 完全隔離，項目方 Symbol 的虧損責任僅限於其提供的 IF 餘額 |
 | 7 | 唯一性 | 每個 Symbol 全平台唯一。當有人正在建立某 Symbol 的上架申請（NEW 階段）時，其他人無法針對該 Symbol 建立新的申請，直到原申請失效或完成。 |
 | 8 | 黑名單 | 平台維護禁止上架的 Symbol 黑名單，項目方無法上架黑名單內的 Symbol |
 | 9 | 保證金模式 | 這些Symbol僅支援 Isolated Margin (逐倉) |
+| 10 | RWA 限制 | RWA 類資產暫不支援無許可上架 |
 
 ---
 
@@ -135,7 +136,7 @@ flowchart TB
 | 1 | 進入「帳號管理」頁面 |
 | 2 | 點擊對應的 Account |
 | 3 | 輸入子帳戶ID（須為 Admin Account 的子帳戶） |
-| 4 | 系統確認後並定期生效，等待時間不可再次變更 |
+| 4 | 系統確認後並定期生效，等待時間不可再次變更（等待時間待確認） |
 
 
 
@@ -147,7 +148,7 @@ MM Account 需先建立，上架 Symbol 時再選擇綁定。
 |------|------|------|
 | 1 | 進入「帳號管理」頁面 | - |
 | 2 | 點擊「新增 MM Account」 | 檢查是否已達上限 |
-| 3 | 輸入帳號名稱 | <= 50 字元 |
+| 3 | 輸入帳號名稱 | ≤ 50 字元 |
 | 4 | 配置手續費 | 僅在Broker可配範圍內，不能小於base fee rate |
 | 5 | 系統確認建立 | - |
 | 6 | 上線後仍可異動，即時生效 |
@@ -162,7 +163,7 @@ MM Account 需先建立，上架 Symbol 時再選擇綁定。
 
 | 階段 | 觸發條件 | 執行者 | 動作 |
 |------|---------|--------|------|
-| 提交 | 用戶確認 | CEFI | Pre-check → 建立 Pending Record |
+| 提交 | 用戶確認 | CEFI | 建立 NEW Record → Pre-check |
 | 上傳 | Pre-check 通過 | Operator | 上傳 symbol, symbolHash, symbolContractID |
 | 同步 | Contract Event | Indexer | 同步狀態至 CEFI |
 | 等待 | - | CEFI | 等待時間 T 到達 |
@@ -170,7 +171,7 @@ MM Account 需先建立，上架 Symbol 時再選擇綁定。
 | Active | 深度達標 | CEFI | 開放所有用戶交易 |
 
 **時間 T 規則：**
-- T 必須 >= 當前時間 + 1 小時
+- T 必須 ≥ 當前時間 + 1 小時（以送出申請的系統時間為準）
 - T 必須為整點時間（例：現在 14:35，最早可選 16:00）
 - 不支援立即上架，時間不符合規則會拒絕
 
@@ -187,8 +188,8 @@ sequenceDiagram
     participant Indexer
 
     User->>CEFI: 提交申請
+    CEFI->>CEFI: 建立 NEW Record
     CEFI->>CEFI: Pre-check
-    CEFI->>CEFI: 建立 Record
     CEFI->>Operator: ListingSymbol
     Operator->>Contract: addSymbol
     Contract-->>Indexer: Emit Event
@@ -212,6 +213,8 @@ sequenceDiagram
   
 ### 6.1.2 狀態轉換總表
 
+> **NEW 建立時機**：用戶提交申請即建立 NEW；Pre-check 通過且合約寫入成功後進入 PENDING。
+
 | 當前狀態 | 觸發條件 | 目標狀態 | 執行者 |
 |---------|---------|---------|--------|
 | NEW | Pre-check 通過 + 合約寫入成功 | PENDING | System |
@@ -225,11 +228,13 @@ sequenceDiagram
 | REDUCE_ONLY | Emergency 條件觸發 | DELISTING | System |
 | DELISTING | 進入下架流程 | DELISTED | System |
 
+> **Reduce-only 退出規則**：目前僅允許 Orderly Admin 手動解除，無自動退出機制。
+
 ---
 
 ### 6.1.3 Symbol 特殊手續費配置
 
-每個 Symbol 可獨立配置手續費率加成 (Fee Markup)。手續費分潤 (Fee Share) 將依據「實際收取的總手續費（含加成）」進行計算。
+每個 Symbol 可獨立配置手續費率加成 (Fee Markup)，由 Broker 設定；加成為用戶支付手續費的比例（bps）。手續費分潤 (Fee Share) 將依據「用戶實際支付的總手續費（含加成）」進行計算。
 
 加成設定規則：
 - Taker Fee Rate markup: 0 - 2 bps (預設: 0 bps)
@@ -250,7 +255,7 @@ sequenceDiagram
 | **IF Account Balance** | 確保保險基金足以覆蓋市場波動風險 | Sec 4.1 |
 | **Liquidation Account Balance** | 確保有足夠資金執行清算操作 | Sec 4.2 |
 | **MM Account Balance** | 確保做市商有足夠保證金維持掛單 | Sec 4.3 |
-| **價格來源 (Price Source)** | 驗證來源數量與數據品質 (Permissionless 需 >= 1) | Sec 3.1 & 4.5 |
+| **價格來源 (Price Source)** | 驗證來源數量與數據品質 (Permissionless 需 ≥ 1) | Sec 3.1 & 4.5 |
 
 > **注意**：系統將嚴格依據上述規則文件中的公式進行自動化計算與驗證，項目方需確保帳戶餘額隨時滿足最低要求，否則將觸發 Warning 或 Limit 限制。
 
@@ -288,6 +293,5 @@ sequenceDiagram
 |------|------|
 | 1 | 觸發條件達成（IF < 50%、大量穿倉等） |
 | 2 | Symbol 立即進入 Reduce-only 狀態 |
-| 3 | Symbol 立即進入 Delisting 狀態 |
+| 3 | Reduce-only 後由系統進入 Delisting 狀態 |
 | 4 | Symbol 完成下架，並且狀態改為 Delisted |
-
