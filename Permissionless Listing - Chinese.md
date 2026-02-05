@@ -169,7 +169,7 @@ MM Account 需先建立，上架 Symbol 時再選擇綁定。
 | Post-only | 時間 T 到達 | CEFI | 開放 MM 掛單，監控深度 |
 | Active | 深度達標 | CEFI | 開放所有用戶交易 |
 
-**上架時間規則：**
+**時間 T 規則：**
 - T 必須 >= 當前時間 + 1 小時
 - T 必須為整點時間（例：現在 14:35，最早可選 16:00）
 - 不支援立即上架，時間不符合規則會拒絕
@@ -241,7 +241,7 @@ sequenceDiagram
 ## 6.2 自動化檢查
 
 各項 Listing 參數與風控規則（包含 IF, Liquidation, MM Account 的餘額計算公式）請詳細參考說明：
-👉 **[Orderly Perps Listing Parameters Rules](./Orderly_Perps_Listing_Parameters_Rules.md)**
+ **[Orderly Perps Listing Parameters Rules](./Orderly_Perps_Listing_Parameters_Rules.md)**
 
 ### 6.2.1 關鍵檢查項目摘要
 
@@ -260,7 +260,7 @@ sequenceDiagram
 # 7. 上架後（Post-listing）
 
 詳細的監控項目、事件分級、清算與 ADL 流程，請參考：
-👉 **[Orderly Perps Listing Parameters Rules - Post-listing Risk Control](./Orderly_Perps_Listing_Parameters_Rules.md#6-post-listing-risk-control-from-prd)**
+ **[Orderly Perps Listing Parameters Rules - Post-listing Risk Control](./Orderly_Perps_Listing_Parameters_Rules.md#6-post-listing-risk-control-from-prd)**
 
 ### 7.1 風控機制摘要
 
