@@ -262,27 +262,24 @@ sequenceDiagram
 詳細的監控項目、事件分級、清算與 ADL 流程，請參考：
  **[Orderly Perps Listing Parameters Rules - Post-listing Risk Control](./Orderly_Perps_Listing_Parameters_Rules.md#6-post-listing-risk-control-from-prd)**
 
-### 7.1 風控機制摘要
+### 風控機制摘要
 
 | 機制 | 目的 | 觸發動作摘要 |
 |------|------|-------------|
 | 即時監控 | 確保系統健康 | 監控價格來源、流動性深度、各帳戶餘額 |
-| 分級處置 | 依風險程度採取行動 | Warning (通知) → Limit (Reduce-only) → Emergency (Delist) |
-| ADL 機制 | 極端情況下的最後防線 |  |
+| 分級處置 | 依風險程度採取行動 | Warning (TG Notify) → Limit (RO Mode) → Emergency (Delist) |
+| ADL 機制 | 極端情況下的最後防線 | 僅針對對應的Symbol進入ADL|
 
-# 8. 下架流程（Delisting）
+# 8. 下架流程
 
-## 8.1 主動下架
-
-項目方可主動申請下架 Symbol：
+## 8.1 項目方主動下架
 
 | 步驟 | 操作 |
 |------|------|
-| 1 | 項目方提交下架申請 |
-| 2 | Symbol 進入 Reduce-only 狀態（T+0） |
-| 3 | 通知所有用戶 |
-| 4 | 強制平倉剩餘倉位（以 Mark Price 結算） |
-| 5 | Symbol 狀態改為 Delisted |
+| 1 | 項目方提交下架申請，並選擇時間T |
+| 2 | Symbol 立即進入 Reduce-only 狀態 |
+| 3 | 到達時間T，進入Delisting狀態 |
+| 4 | 下架完成，狀態改為 Delisted |
 
 
 ## 8.2 平台觸發下架
@@ -290,7 +287,7 @@ sequenceDiagram
 | 步驟 | 操作 |
 |------|------|
 | 1 | 觸發條件達成（IF < 50%、大量穿倉等） |
-| 2 | Symbol 進入 Reduce-only 狀態 |
-| 3 | Symbol 進入 Delisting 狀態 |
+| 2 | Symbol 立即進入 Reduce-only 狀態 |
+| 3 | Symbol 立即進入 Delisting 狀態 |
 | 4 | Symbol 完成下架，並且狀態改為 Delisted |
 
