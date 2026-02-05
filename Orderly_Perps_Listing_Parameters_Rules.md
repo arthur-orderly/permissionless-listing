@@ -32,7 +32,75 @@ BINANCE, HUOBI, OKX, GATEIO, BYBIT, KUCOIN, COINBASE, MEXC, BITGET, BINGX, HYPER
 
 ## 2. 參數設定規則
 
-### 2.1 固定參數
+### 參數總表
+
+| 參數 | 來源 | 說明 |
+|------|------|------|
+| base_ccy | Broker  | Symbol Name |
+| max_leverage | Broker  | 最大槓桿（5x / 10x / 20x） |
+| global_max_oi | Broker  | 全局最大持倉量 |
+| max_notional_user | Broker  | 單用戶最大名目金額 |
+| taker_fee_markup | Broker | 手續費加成 |
+| maker_fee_markup | Broker | 手續費加成 |
+| quote_min | 系統固定 | 0 |
+| quote_max | 系統固定 | 100,000（BTC: 200,000） |
+| min_notional | 系統固定 | 10 USDC |
+| price_scope | 系統固定 | 0.6 |
+| max_notional_dmm | 系統固定 | 1,000,000,000,000 |
+| interest_rate | 系統固定 | 0.01% per 8h |
+| slope_parameters | 系統固定 | slope1=1, slope2=2, slope3=4, p1=0.5%, p2=1.5% |
+| trade_valid_interval | 系統固定 | 7,200 秒 |
+| liquidation_fee_rate | 系統計算 | 依槓桿，詳見 2.3.5 |
+| base_min | 系統計算 | 依 oracle price 計算 |
+| base_tick | 系統計算 | 依 CEX 或 base_min |
+| quote_tick | 系統計算 | 依 CEX / Oracle 小數位 |
+| index_source | 系統計算 | 依可用價格來源 |
+| imr | 系統計算 | 依 Max Leverage |
+| mmr | 系統計算 | 依 imr / market cap |
+| price_range | 系統計算 | 依 TGE / 槓桿 |
+| base_max | 系統計算 | 依市值 / 排名 |
+| impact_margin_notional | 系統計算 | 依槓桿 / TGE |
+| funding_parameters | 系統計算 | 依 CEX 資料 |
+| index_weight / bbo_interval | 系統計算 | 依交易所 / 交易量 |
+
+---
+
+### 2.1 Broker 可配參數
+
+以下參數由 Broker 自行設定，系統進行驗證：
+
+| 參數 | 驗證規則 | 警示 |
+|------|---------|------|
+| base_ccy | 必須能在 CoinGecko API 中找到 | - |
+| max_leverage | 用戶從 5x / 10x / 20x 中選擇，系統依條件限制（見下方） | - |
+| global_max_oi | 不可超過 IF 餘額反算的上限（見 3.1） | - |
+| max_notional_user | 不可超過 Global Max OI 的 5% | - |
+| taker_fee_markup | 0 - 5 bps，預設 0 bps | - |
+| maker_fee_markup | 0 - 2 bps，預設 0 bps | - |
+
+#### 2.1.1 Max Leverage 選項與限制
+
+用戶從以下選項中選擇，系統根據條件自動限制可選範圍：
+
+| 條件 | 可選選項 | IMR | 說明 |
+|------|---------|-----|------|
+| TGE 新上架 | 5x only | 20% | 強制 5x，不可選更高 |
+| 市值 < $30m | 5x only | 20% | 強制 5x，不可選更高 |
+| 市值 $30m - $100m | 5x / 10x | 20% / 10% | 最高 10x |
+| 市值 > $100m | 5x / 10x / 20x | 20% / 10% / 5% | 最高 20x |
+
+#### 2.1.2 手續費加成 (Fee Markup)
+
+每個 Symbol 可獨立配置手續費率加成，加成為用戶支付手續費的額外比例（bps）。手續費分潤 (Fee Share) 依據用戶實際支付的總手續費（含加成）進行計算，也會影響Referral的計算
+
+| 參數 | 範圍 | 預設 | 說明 |
+|------|------|------|------|
+| taker_fee_markup | 0 - 5 bps | 0 bps | Taker 額外手續費 |
+| maker_fee_markup | 0 - 2 bps | 0 bps | Maker 額外手續費 |
+
+---
+
+### 2.2 固定參數
 
 以下參數為系統固定值，Broker 不可修改：
 
@@ -42,84 +110,52 @@ BINANCE, HUOBI, OKX, GATEIO, BYBIT, KUCOIN, COINBASE, MEXC, BITGET, BINGX, HYPER
 | quote_max | 100,000（BTC: 200,000） | - |
 | min_notional | 10 | USDC |
 | price_scope | 0.6 | - |
-| Max Notional (DMM) | 1,000,000,000,000 | 無限制 |
-| Interest Rate | 0.01% per 8h | 固定值，程式自動處理其他週期轉換 |
-| Slope Parameters | slope1=1, slope2=2, slope3=4, p1=0.5%, p2=1.5% | - |
+| max_notional_dmm | 1,000,000,000,000 | 無限制 |
+| interest_rate | 0.01% per 8h | 與 CEX 相同，固定基準值 |
+| slope_parameters | slope1=1, slope2=2, slope3=4, p1=0.5%, p2=1.5% | - |
 | trade_valid_interval | 7,200 | 秒 |
 
-### 2.2 Broker 可配參數
-
-以下參數由 Broker 自行設定，系統進行驗證：
-
-| 參數 | 驗證規則 | 警示 |
-|------|---------|------|
-| base_ccy | 必須為有效的 CoinGecko API ID | - |
-| quote_tick | 小數位數 ≤ `min(CEX 小數位, Oracle 小數位)`；無 CEX 參考時 ≤ Oracle 小數位 | `quote_tick / price > 1%` 時警示 |
-| base_min | `base_min × price ≥ min_notional`（10 USDC） | - |
-| base_tick | 參考 CEX，無 CEX 時 = base_min | - |
-| IMR | `1 / max_leverage`；TGE 或市值 < $30m 時建議 0.2（5x） | 系統可限制最大槓桿 |
-| Max Notional (User) | 不可超過系統計算的上限（見 2.3.2） | - |
-| Index Source | 至少 1 個有效來源（Permissionless）/ 3 個（Standard） | - |
+---
 
 ### 2.3 計算型參數
 
-以下參數由系統根據市場數據自動計算。
+以下參數由系統根據 Broker 輸入與市場數據自動計算，Broker 不可修改。
 
 #### 2.3.1 價格與下單
 
-```pseudo
-price_decimals = decimals(oracle_price)
-if cex_quote_tick exists:
-    max_decimals = min(decimals(cex_quote_tick), price_decimals)
-else:
-    max_decimals = price_decimals
-assert decimals(broker_quote_tick) ≤ max_decimals     // API 拒絕
+**quote_tick：**
+- 有 CEX 參考時：小數位數取 `min(CEX 小數位, Oracle 小數位)`
+- 無 CEX 參考時：取 Oracle 小數位
+- 若 `quote_tick / price > 1%` → 警示
 
-if cex_base_min exists:
-    base_min = cex_base_min
-else:
-    base_min = ceil(min_notional / oracle_price)
-assert base_min * oracle_price ≥ min_notional         // API 拒絕
+**base_min：**
+- 有 CEX 參考時：取 CEX 的 base_min
+- 無 CEX 參考時：目標價值約 1 USDC（`1 / oracle_price`）
+- 驗證：`base_min × price` 必須介於 0.02 ~ 5 USDC
 
-if cex_base_tick exists:
-    base_tick = cex_base_tick
-else:
-    base_tick = base_min
+**base_tick：**
+- 有 CEX 參考時：取 CEX 的 base_tick
+- 無 CEX 參考時：= base_min
 
-if is_TGE_day1:
-    price_range = 0.1                                  // 10%，隔天與 MM 確認後降低
-else:
-    price_range = (max_leverage >= 20) ? 0.03 : 0.05   // 20x→3%, 10x→5%
-```
+**price_range：**
+
+| 條件 | price_range | 說明 |
+|------|-------------|------|
+| TGE 第一天 | 10% | 隔天降低 |
+| max_leverage ≥ 20x | 3% | - |
+| max_leverage < 20x | 5% | - |
 
 #### 2.3.2 Notional 與限額
 
-```pseudo
-market_cap_rank = coingecko.market_cap_rank
+**base_max（依市值排名）：**
 
-// --- base_max ---
-base_max =
-    symbol in {BTC, ETH, SOL}  ? 3,000,000 :
-    market_cap_rank ≤ 20       ? 1,000,000 :
-    market_cap_rank ≤ 100      ?   500,000 :
-    by_market_cap_tier()
-if depth_2pct < 10,000:
-    base_max = 10,000
-
-// --- Global Max OI ---
-global_max_oi = by_market_cap_tier()
-
-// --- User Max Notional ---
-user_max_notional = by_market_cap_tier()
-if depth_2pct < 10,000:
-    user_max_notional = 50,000
-
-// --- 價格來源數調整 ---
-if price_sources == 1:
-    global_max_oi     *= 0.5
-    user_max_notional *= 0.5
-    max_leverage = min(max_leverage, 5)
-```
+| 條件 | base_max |
+|------|----------|
+| BTC / ETH / SOL | $3,000,000 |
+| 市值排名 ≤ 20 | $1,000,000 |
+| 市值排名 ≤ 100 | $500,000 |
+| 其他依市值分級 | 見下表 |
+| 若 CEX ±2% 深度 < $10k | 降至 $10,000 |
 
 **市值分級對照表：**
 
@@ -134,6 +170,8 @@ if price_sources == 1:
 | $600m - $1B | - | ~$500k |
 | > $1B | - | ~$1m |
 
+> 若 CEX ±2% 深度 < $10k → User Max Notional 降至 $50k
+
 **單一價格來源限制：**
 
 | 項目 | 多來源 (≥2) | 單一來源 (=1) |
@@ -145,73 +183,90 @@ if price_sources == 1:
 
 #### 2.3.3 槓桿與保證金
 
-```pseudo
-if is_TGE or market_cap < 30,000,000:
-    imr = 0.2                                          // 最高 5x
-else:
-    imr = min(1 / max_leverage, 0.1)                   // 最高 10x
+**IMR / MMR：**
 
-mmr = imr / 2
-if imr == 0.1 and market_cap < 100,000,000:
-    mmr = 0.06                                         // 例外
+| 條件 | IMR | MMR | 說明 |
+|------|-----|-----|------|
+| TGE 或市值 < $30m | 20% | 10% | 強制 5x |
+| 市值 ≥ $30m, 10x | 10% | 5% | - |
+| 市值 ≥ $30m, 10x, 市值 < $100m | 10% | 6% | MMR 例外調高 |
+| 市值 ≥ $100m, 20x | 5% | 2.5% | - |
 
-impact_margin_notional =
-    (is_TGE and market_cap > 1B and max_leverage ≤ 5) ? 500 :
-    max_leverage > 10 ? 1000 :
-    max_leverage > 5  ? 500  :
-    100
-```
+> MMR = IMR / 2（市值 < $100m 且 IMR = 10% 時例外為 6%）
+
+**impact_margin_notional：**
+
+| 條件 | 值 |
+|------|-----|
+| 熱門 TGE（市值 > $1B, ≤ 5x） | 500 |
+| max_leverage > 10x | 1,000 |
+| max_leverage > 5x | 500 |
+| max_leverage ≤ 5x | 100 |
 
 #### 2.3.4 Funding 與利率
 
-```pseudo
-funding_period = cex_period(priority = Binance > OKX > Bybit)
-funding_cron = funding_period_hours * 3600
-// Cron：1h → "0 0 * * * ?"；4h → "0 0 0,4,8,12,16,20 * * ?"；8h → "0 0 0,8,16 * * ?"
+**funding_period：** 查詢 CEX funding 間隔，優先順序 Binance > OKX > Bybit
 
-funding_cap = cex_cap * (orderly_period / cex_period)
-if only_tier2_cex:
-    funding_cap = 0.04                                 // 例：2% × (8/4) = 4%
-funding_floor = cex_floor * (orderly_period / cex_period)
+**funding_cron：**
 
-cap_floor_interest = (orderly_period / cex_period) * 0.01%  // Floor 為負值
+| 間隔 | Cron 表達式 |
+|------|------------|
+| 1h | `0 0 * * * ?` |
+| 4h | `0 0 0,4,8,12,16,20 * * ?` |
+| 8h | `0 0 0,8,16 * * ?` |
 
-mark_price_max_dev = roundup(0.0525 / funding_cap, 3)
-// 範例：5.25% / 4% = 1.3125 → 1.313
+**funding_cap / funding_floor：**
+- 公式：`CEX Cap × (Orderly 週期 / CEX 週期)`
+- 僅在二線 CEX 上架時，預設 cap = 4%
 
-unitary_funding_rounding:
-    config_suf ≥ min(1e-6, min_funding_rate)
-```
+**Interest Rate 與 Cap/Floor Interest：**
+
+Interest Rate 固定為 0.01% per 8h（與 CEX 相同），但 Cap/Floor Interest 需根據 Orderly 實際的 funding 週期換算：
+
+| 參數 | 公式 | 說明 |
+|------|------|------|
+| interest_rate | 固定 0.01% per 8h | 基準值，與 CEX 相同 |
+| cap_interest | `(Orderly 週期 / CEX 週期) × 0.01%` | 正值 |
+| floor_interest | `-(Orderly 週期 / CEX 週期) × 0.01%` | 負值 |
+
+**範例：**
+
+| Orderly 週期 | CEX 週期 | cap_interest | floor_interest |
+|-------------|---------|--------------|----------------|
+| 8h | 8h | +0.01% | -0.01% |
+| 4h | 8h | +0.005% | -0.005% |
+| 1h | 8h | +0.00125% | -0.00125% |
+
+**其他 Funding 參數：**
+
+| 參數 | 計算方式 | 範例 |
+|------|---------|------|
+| mark_price_max_dev | `roundup(5.25% / funding_cap, 3)` | 5.25% / 4% = 1.3125 → 1.313 |
+| unitary_funding_rounding | `config_suf ≥ min(1e-6, min_funding_rate)` | - |
 
 #### 2.3.5 清算費率
 
-```pseudo
-std_liquidation_fee =
-    max_leverage ≤ 10 ? 2.4% :
-    max_leverage ≥ 50 ? 0.8% :
-    max_leverage ≥ 20 ? 1.5% : 2.4%
+| Max Leverage | std_liquidation_fee | liquidator_fee | claim_IF_discount |
+|--------------|---------------------|----------------|-------------------|
+| ≤ 10x | 2.4% | 1.2% | 1.0% |
+| ≥ 20x | 1.5% | 0.75% | 0.75% |
+| ≥ 50x | 0.8% | 0.4% | 0.4% |
 
-liquidator_fee = std_liquidation_fee / 2
-
-claim_insurance_fund_discount =
-    max_leverage ≥ 50 ? 0.4% :
-    max_leverage ≥ 20 ? 0.75% :
-    1.0%
-```
+> `liquidator_fee = std_liquidation_fee / 2`
 
 #### 2.3.6 指數與行情
 
-```pseudo
-// 價格指數權重：查詢 CoinGecko 現貨交易量（最多 7 個來源）
-index_price_weight = volume_i / sum(volumes)
+**index_price_weight：** 查詢 CoinGecko 現貨交易量（最多 7 個來源），`weight = volume_i / sum(volumes)`
 
-bbo_valid_interval =
-    exchange in {Binance, Bybit, OKX} ? 10 :
-    exchange in {MEXC, Gate}          ? 20 :
-    30
+**bbo_valid_interval：**
 
-index_quote_tick = quote_tick
-```
+| 交易所 | interval (秒) |
+|--------|--------------|
+| Binance / Bybit / OKX | 10 |
+| MEXC / Gate | 20 |
+| 其他 | 30 |
+
+**index_quote_tick：** 與 symbol 的 quote_tick 相同
 
 ---
 
@@ -337,38 +392,20 @@ mm_config (account, symbol, start_date, sample_seconds, uptime_pct)
 
 ---
 
-## 4. 上架驗證清單
-
-| # | 檢查項目 | 驗證方式 | 失敗處置 |
-|---|---------|---------|---------|
-| 1 | CoinGecko ID | API 查詢 | 拒絕上架 |
-| 2 | 黑名單檢查 | 內部資料庫 | 拒絕上架 |
-| 3 | 價格來源 | ≥ 1 個有效來源（Permissionless）/ ≥ 3 個（Standard） | 拒絕上架 |
-| 4 | IF 餘額 | ≥ 最低要求（見 3.1） | 拒絕上架 |
-| 5 | Liq 餘額 | ≥ 最低要求（見 3.2） | 拒絕上架 |
-| 6 | MM 餘額 | ≥ 最低要求（見 3.3） | 拒絕上架 |
-| 7 | 參數驗證 | quote_tick、base_min 等驗證規則（見 2.2） | 拒絕上架 |
-
----
-
 ## 5. 上架後監控
 
 ### 5.1 監控總表
 
-| 監控項目 | 適用範圍 | 頻率 | Warning | Limit | Emergency |
-|---------|---------|------|---------|-------|-----------|
-| IF 餘額 | All | 1 分鐘 | < 120% min | < 80% min → Reduce-only | < 50% min → Delist |
-| Liq 餘額 | All | 1 分鐘 | < 120% min | < 80% min → 暫停清算 | < 50% min → Delist |
-| MM 餘額 | Permissionless | 1 分鐘 | < 100% min | < 50% min 持續 30 分鐘 → Reduce-only | - |
-| 流動性深度 | All | 1 分鐘 | ±2% < $10k | ±2% < $5k 持續 10 分鐘 → Reduce-only | - |
-| 價格來源 (Standard) | Standard | 10 秒 | 來源間偏離 > 3% | 僅剩 1 個來源 | 0 個來源 → 暫停交易 |
-| 價格來源 (Permissionless) | Permissionless | 10 秒 | 凍結 > 1 分鐘 | - | 0 個來源 → 暫停交易 |
-| 價格波動 | All | 即時 | - | 5 分鐘內 > 30% → 暫停新開倉 10 分鐘 | - |
-| 價格偏離 | All | 即時 | - | - | 與 24h VWAP 偏離 > 50% → 暫停交易 |
-| 清算頻率 | All | 1 小時 | > 10 次/小時 | > 20 次/小時 | > 20% OI/小時 |
-| Funding Rate | All | 每週期 | 連續 3 週期達 Cap/Floor | 連續 6 週期達 Cap/Floor | - |
-
-> 此表為監控規則的唯一定義，下方各節提供補充說明。
+| 監控項目 | 頻率 | Warning | Limit | Emergency |
+|---------|------|---------|-------|-----------|
+| IF 餘額 | 1 分鐘 | < 120% min | < 80% min → Reduce-only | < 50% min → Delist |
+| Liq 餘額 | 1 分鐘 | < 120% min | < 80% min → 暫停清算 | < 50% min → Delist |
+| MM 餘額 | 1 分鐘 | < 100% min | < 50% min 持續 30 分鐘 → Reduce-only | - |
+| 流動性深度 | 1 分鐘 | ±2% < $10k | ±2% < $5k 持續 10 分鐘 → Reduce-only | - |
+| 價格來源 | 10 秒 | 凍結 > 1 分鐘 | - | 0 個來源 → 暫停交易 |
+| 價格偏離 | 即時 | - | - | 與 24h VWAP 偏離 > 50% → 暫停交易 |
+| 清算頻率 | 1 小時 | > 20 次/小時 | > 10% OI/小時 | > 20% OI/小時 |
+| Funding Rate | 每週期 | 連續 3 週期達 Cap/Floor | 連續 6 週期達 Cap/Floor | - |
 
 ### 5.2 帳戶餘額監控
 
