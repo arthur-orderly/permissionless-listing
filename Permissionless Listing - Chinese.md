@@ -209,55 +209,27 @@ sequenceDiagram
 
 
 
----
-  
-### 6.1.2 狀態轉換總表
+### 6.1.2 狀態與權限
 
-> **NEW 建立時機**：用戶提交申請即建立 NEW；Pre-check 通過且合約寫入成功後進入 PENDING。
+以下僅說明「誰有權限把狀態移到哪個狀態」，具體條件請參考 Listing Rules：
+| 狀態 | 權限 | 說明 |
+|------|------|------|
+| NEW | Broker Admin | 提交申請 + Pre-check 通過 + 合約寫入成功 之後 |
+| PENDING | SystemScheduler | 等待時間 T 到達之前 |
+| POST_ONLY | System | 時間T到達之後 |
+| ACTIVE | System  | 流動性達標之後 |
+| REDUCE_ONLY | System | 觸發RO規則之後 |
+| REDUCE_ONLY | Admin | 手動申請之後 |
+| DELISTING | Broker Admin / System | - |
+| DELISTED | System | 下架流程完成 |
 
-| 當前狀態 | 觸發條件 | 目標狀態 | 執行者 |
-|---------|---------|---------|--------|
-| NEW | Pre-check 通過 + 合約寫入成功 | PENDING | System |
-| PENDING | 時間 T 到達 | POST_ONLY | Scheduler |
-| POST_ONLY | 市場深度達標 (±2% > $10k) | ACTIVE | System |
-| ACTIVE | IF/Liq 不足觸發限制 | REDUCE_ONLY | System |
-| ACTIVE | Orderly 認為有風險 | REDUCE_ONLY | Orderly Admin |
-| ACTIVE | 項目方主動觸發 | REDUCE_ONLY | Broker Admin |
-| REDUCE_ONLY | Orderly 認為風險解除 | ACTIVE | Orderly Admin |
-| REDUCE_ONLY | 項目方申請下架 | DELISTING | Broker Admin |
-| REDUCE_ONLY | Emergency 條件觸發 | DELISTING | System |
-| DELISTING | 進入下架流程 | DELISTED | System |
 
 > **Reduce-only 退出規則**：目前僅允許 Orderly Admin 手動解除，無自動退出機制。
 
----
-
-### 6.1.3 Symbol 特殊手續費配置
-
-每個 Symbol 可獨立配置手續費率加成 (Fee Markup)，由 Broker 設定；加成為用戶支付手續費的比例（bps）。手續費分潤 (Fee Share) 將依據「用戶實際支付的總手續費（含加成）」進行計算。
-
-加成設定規則：
-- Taker Fee Rate markup: 0 - 2 bps (預設: 0 bps)
-- Maker Fee Rate markup: 0 - 1 bps (預設: 0 bps)
-
-
-
-
 ## 6.2 自動化檢查
 
-各項 Listing 參數與風控規則（包含 IF, Liquidation, MM Account 的餘額計算公式）請詳細參考說明：
- **[Orderly Perps Listing Parameters Rules](./Orderly_Perps_Listing_Parameters_Rules.md)**
-
-### 6.2.1 關鍵檢查項目摘要
-
-| 檢查項目 | 目的 | 參考章節 (Rules) |
-|----------|------|------------------|
-| **IF Account Balance** | 確保保險基金足以覆蓋市場波動風險 | Sec 4.1 |
-| **Liquidation Account Balance** | 確保有足夠資金執行清算操作 | Sec 4.2 |
-| **MM Account Balance** | 確保做市商有足夠保證金維持掛單 | Sec 4.3 |
-| **價格來源 (Price Source)** | 驗證來源數量與數據品質 (Permissionless 需 ≥ 1) | Sec 3.1 & 4.5 |
-
-> **注意**：系統將嚴格依據上述規則文件中的公式進行自動化計算與驗證，項目方需確保帳戶餘額隨時滿足最低要求，否則將觸發 Warning 或 Limit 限制。
+各項 Listing 參數與風控規則：
+ **[Orderly Perps Listing Parameters Rules](./Orderly_Perps_Listing_Parameters_Rules.md)**  
 
 
 ---
@@ -267,13 +239,6 @@ sequenceDiagram
 詳細的監控項目、事件分級、清算與 ADL 流程，請參考：
  **[Orderly Perps Listing Parameters Rules - Post-listing Risk Control](./Orderly_Perps_Listing_Parameters_Rules.md#6-post-listing-risk-control-from-prd)**
 
-### 風控機制摘要
-
-| 機制 | 目的 | 觸發動作摘要 |
-|------|------|-------------|
-| 即時監控 | 確保系統健康 | 監控價格來源、流動性深度、各帳戶餘額 |
-| 分級處置 | 依風險程度採取行動 | Warning (TG Notify) → Limit (RO Mode) → Emergency (Delist) |
-| ADL 機制 | 極端情況下的最後防線 | 僅針對對應的Symbol進入ADL|
 
 # 8. 下架流程
 
@@ -286,12 +251,16 @@ sequenceDiagram
 | 3 | 到達時間T，進入Delisting狀態 |
 | 4 | 下架完成，狀態改為 Delisted |
 
+**時間 T 規則：**
+- T 必須 ≥ 當前時間 + 1 小時（以送出申請的系統時間為準）
+- T 必須為整點時間（例：現在 14:35，最早可選 16:00）
 
-## 8.2 平台觸發下架
+
+## 8.2 系統觸發下架
 
 | 步驟 | 操作 |
 |------|------|
-| 1 | 觸發條件達成（IF < 50%、大量穿倉等） |
+| 1 | 觸發條件達成 |
 | 2 | Symbol 立即進入 Reduce-only 狀態 |
 | 3 | Reduce-only 後由系統進入 Delisting 狀態 |
 | 4 | Symbol 完成下架，並且狀態改為 Delisted |
