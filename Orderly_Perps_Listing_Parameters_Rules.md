@@ -42,26 +42,26 @@ BINANCE, HUOBI, OKX, GATEIO, BYBIT, KUCOIN, COINBASE, MEXC, BITGET, BINGX, HYPER
 | max_notional_user | Broker  | 單用戶最大名目金額 |
 | taker_fee_markup | Broker | 手續費加成 |
 | maker_fee_markup | Broker | 手續費加成 |
-| quote_min | 系統固定 | 0 |
-| quote_max | 系統固定 | 100,000（BTC: 200,000） |
-| min_notional | 系統固定 | 10 USDC |
-| price_scope | 系統固定 | 0.6 |
-| max_notional_dmm | 系統固定 | 1,000,000,000,000 |
-| interest_rate | 系統固定 | 0.01% per 8h |
-| slope_parameters | 系統固定 | slope1=1, slope2=2, slope3=4, p1=0.5%, p2=1.5% |
-| trade_valid_interval | 系統固定 | 7,200 秒 |
-| liquidation_fee_rate | 系統計算 | 依槓桿，詳見 2.3.5 |
-| base_min | 系統計算 | 依 oracle price 計算 |
-| base_tick | 系統計算 | 依 CEX 或 base_min |
-| quote_tick | 系統計算 | 依 CEX / Oracle 小數位 |
-| index_source | 系統計算 | 依可用價格來源 |
-| imr | 系統計算 | 依 Max Leverage |
-| mmr | 系統計算 | 依 imr / market cap |
-| price_range | 系統計算 | 依 TGE / 槓桿 |
-| base_max | 系統計算 | 依市值 / 排名 |
-| impact_margin_notional | 系統計算 | 依槓桿 / TGE |
-| funding_parameters | 系統計算 | 依 CEX 資料 |
-| index_weight / bbo_interval | 系統計算 | 依交易所 / 交易量 |
+| quote_min | 固定 | 0 |
+| quote_max | 固定 | 100,000（BTC: 200,000） |
+| min_notional | 固定 | 10 USDC |
+| price_scope | 固定 | 0.6 |
+| max_notional_dmm | 固定 | 1,000,000,000,000 |
+| interest_rate | 固定 | 0.01% per 8h |
+| slope_parameters | 固定 | slope1=1, slope2=2, slope3=4, p1=0.5%, p2=1.5% |
+| trade_valid_interval | 固定 | 7,200 秒 |
+| liquidation_fee_rate | 計算 | 依槓桿，詳見 2.3.5 |
+| base_min | 計算 | 依 oracle price 計算 |
+| base_tick | 計算 | 依 CEX 或 base_min |
+| quote_tick | 計算 | 依 CEX / Oracle 小數位 |
+| index_source | 計算 | 依可用價格來源 |
+| imr | 計算 | 依 Max Leverage |
+| mmr | 計算 | 依 imr / market cap |
+| price_range | 計算 | 依 TGE / 槓桿 |
+| base_max | 計算 | 依市值 / 排名 |
+| impact_margin_notional | 計算 | 依槓桿 / TGE |
+| funding_parameters | 計算 | 依 CEX 資料 |
+| index_weight / bbo_interval | 計算 | 依交易所 / 交易量 |
 
 ---
 
@@ -80,7 +80,7 @@ BINANCE, HUOBI, OKX, GATEIO, BYBIT, KUCOIN, COINBASE, MEXC, BITGET, BINGX, HYPER
 
 #### 2.1.1 Max Leverage 選項與限制
 
-用戶從以下選項中選擇，系統根據條件自動限制可選範圍：
+Broker從以下選項中選擇，系統根據條件自動限制可選範圍：
 
 | 條件 | 可選選項 | IMR | 說明 |
 |------|---------|-----|------|
@@ -102,8 +102,6 @@ BINANCE, HUOBI, OKX, GATEIO, BYBIT, KUCOIN, COINBASE, MEXC, BITGET, BINGX, HYPER
 
 ### 2.2 固定參數
 
-以下參數為系統固定值，Broker 不可修改：
-
 | 參數 | 值 | 備註 |
 |------|-----|------|
 | quote_min | 0 | - |
@@ -117,9 +115,7 @@ BINANCE, HUOBI, OKX, GATEIO, BYBIT, KUCOIN, COINBASE, MEXC, BITGET, BINGX, HYPER
 
 ---
 
-### 2.3 計算型參數
-
-以下參數由系統根據 Broker 輸入與市場數據自動計算，Broker 不可修改。
+### 2.3 計算參數
 
 #### 2.3.1 價格與下單
 
@@ -217,7 +213,7 @@ BINANCE, HUOBI, OKX, GATEIO, BYBIT, KUCOIN, COINBASE, MEXC, BITGET, BINGX, HYPER
 
 **funding_cap / funding_floor：**
 - 公式：`CEX Cap × (Orderly 週期 / CEX 週期)`
-- 僅在二線 CEX 上架時，預設 cap = 4%
+- 沒有在Binance/OKX/Bybit 上架時，預設 cap = 4%
 
 **Interest Rate 與 Cap/Floor Interest：**
 
@@ -272,14 +268,28 @@ Interest Rate 固定為 0.01% per 8h（與 CEX 相同），但 Cap/Floor Interes
 
 ## 3. 風控帳戶要求
 
-上架前需驗證以下三個帳戶的餘額是否滿足最低要求。
+上架前需驗證以下帳戶的餘額是否滿足最低要求。上架時尚無 User OI，故以配置的 Global Max OI 計算。
+
+### Rate 總覽
+
+以下 Rate 由系統根據市值與槓桿自動計算，Broker 不可配：
+
+| Rate | 依據 | 邏輯 |
+|------|------|------|
+| IF Rate | 市值 + 槓桿 | 市值越小、槓桿越低 → Rate 越高（穿倉風險較高） |
+| Liq Rate | 槓桿 | 槓桿越低 → Rate 越高（單筆清算金額較大） |
+
+> MM Account 不使用 Rate，直接監控流動性深度（見 5.4）
 
 ### 3.1 保險基金 (IF Account)
 
-**公式：**
+**上架驗證公式：**
 ```
-IF Balance ≥ Σ (Global Max OI_adjusted_i × IF Rate_i)
+min_IF = Σ (Global Max OI × IF Rate)
+IF Balance ≥ min_IF × 120%
 ```
+
+> 需達到 120% 配置覆蓋率才可上架，確保有足夠緩衝
 
 **IF Rate = Base Rate × Leverage Multiplier**
 
@@ -314,13 +324,16 @@ IF Balance ≥ Σ (Global Max OI_adjusted_i × IF Rate_i)
 
 ### 3.2 清算帳戶 (Liquidation Account)
 
-**公式：**
+**上架驗證公式：**
 ```
-Liq Balance ≥ Max(
+min_Liq = Max(
     Global Max OI × Liq Rate,
     User Max Notional × IMR × Concurrent Factor
 )
+Liq Balance ≥ min_Liq
 ```
+
+> 上架時以配置值計算，確保能承接最大可能的清算量
 
 **Liq Rate（依槓桿）：**
 
@@ -342,102 +355,104 @@ Liq Balance ≥ Max(
 
 ### 3.3 做市商帳戶 (MM Account)
 
-**餘額公式：**
-```
-MM Balance ≥ (Global Max OI × MM Rate) + Buffer
-```
+MM Account 不使用 Rate 公式計算最低餘額，改為監控流動性深度（見 5.4）。
 
-**MM Rate（依槓桿，≈ IMR × 1.25）：**
+上架前需確認 MM Account 已配置且有足夠餘額進行做市。
 
-| 最大槓桿 | IMR | MM Rate |
-|---------|-----|---------|
-| ≤ 5x | 20% | 25% |
-| ≤ 10x | 10% | 12.5% |
-| ≤ 20x | 5% | 6.25% |
-| > 20x | < 5% | 5% |
+---
 
-**Buffer（依 Global Max OI）：**
+## 4. 上架驗證清單
 
-| Global Max OI | Buffer |
-|---------------|--------|
-| < $100k | $5,000 |
-| $100k - $500k | $10,000 |
-| $500k - $1m | $20,000 |
-| > $1m | $50,000 |
+上架前系統自動驗證以下項目，全部通過才可上架：
 
-**做市要求（MM Requirement）：**
-
-> **TODO**: Permissionless Listing 的 MM Requirement 定義待確認
-
-**現有 Standard Listing 結構參考：**
-
-```sql
-mm_requirement (symbol, account, type, spread, bid_level, ask_level, bid_amount, ask_amount)
-mm_config (account, symbol, start_date, sample_seconds, uptime_pct)
-```
-
-| Spread (bps) | Bid Amount | Ask Amount | 說明 |
-|--------------|------------|------------|------|
-| 30 | $1,000 | $1,000 | ±0.3% 範圍內需 $1k 深度 |
-| 40 | $5,000 | $5,000 | ±0.4% 範圍內需 $5k 深度 |
-| 50 | $5,000 | $5,000 | ±0.5% 範圍內需 $5k 深度 |
-| 100 | $25,000 | $25,000 | ±1% 範圍內需 $25k 深度 |
-| 1000 | $25,000 | $25,000 | ±10% 範圍內需 $25k 深度 |
-
-**待確認項目：**
-- [ ] Permissionless 是否沿用相同的 MM Requirement 結構？
-- [ ] 不同市值層級的 MM Requirement 預設值？
-- [ ] 項目方可否自訂 MM Requirement？
-- [ ] Uptime 要求是否相同（80%）？
+| # | 檢查項目 | 驗證方式 |
+|---|---------|---------|
+| 1 | CoinGecko ID | API 查詢 base_ccy 是否存在 |
+| 2 | 黑名單檢查 | 內部資料庫比對 |
+| 3 | 價格來源 | ≥ 1 個有效來源 |
+| 4 | IF 餘額 | IF Balance ≥ min_IF × 120%（見 3.1） |
+| 5 | Liq 餘額 | Liq Balance ≥ min_Liq（見 3.2） |
+| 6 | MM Account | 帳戶已配置 |
 
 ---
 
 ## 5. 上架後監控
 
-### 5.1 監控總表
+### 5.1 Broker 看板顯示項目
 
-| 監控項目 | 頻率 | Warning | Limit | Emergency |
-|---------|------|---------|-------|-----------|
-| IF 餘額 | 1 分鐘 | < 120% min | < 80% min → Reduce-only | < 50% min → Delist |
-| Liq 餘額 | 1 分鐘 | < 120% min | < 80% min → 暫停清算 | < 50% min → Delist |
-| MM 餘額 | 1 分鐘 | < 100% min | < 50% min 持續 30 分鐘 → Reduce-only | - |
-| 流動性深度 | 1 分鐘 | ±2% < $10k | ±2% < $5k 持續 10 分鐘 → Reduce-only | - |
-| 價格來源 | 10 秒 | 凍結 > 1 分鐘 | - | 0 個來源 → 暫停交易 |
-| 價格偏離 | 即時 | - | - | 與 24h VWAP 偏離 > 50% → 暫停交易 |
-| 清算頻率 | 1 小時 | > 20 次/小時 | > 10% OI/小時 | > 20% OI/小時 |
-| Funding Rate | 每週期 | 連續 3 週期達 Cap/Floor | 連續 6 週期達 Cap/Floor | - |
-
-### 5.2 帳戶餘額監控
+以下項目需在 Broker 看板上顯示，供 Broker 即時檢視：
 
 **IF Account：**
 
-| 狀態 | 門檻 | 系統動作 |
-|------|------|---------|
-| Normal | ≥ 120% min_IF | 正常運作 |
-| Warning | < 120% min_IF | 通知項目方補充 IF |
-| Limit | < 80% min_IF | Reduce-only mode（僅允許減倉） |
-| Emergency | < 50% min_IF | Emergency Delist |
+| 項目 | 說明 |
+|------|------|
+| Account Value | 帳戶總價值（USDC + 未實現盈虧） |
+| Margin Ratio (MR) | 維持保證金比例 |
+| min_IF | 最低 IF 要求 = Σ (Global Max OI × IF Rate)，基於配置值 |
+| User OI | 平台用戶實際持倉量（不含 MM Account） |
+| 配置覆蓋率 | Account Value / min_IF（確保最壞情況有足夠覆蓋） |
+| 實際覆蓋率 | Account Value / (User OI × IF Rate)（貼近真實風險） |
+| 狀態 | Normal / Warning / Limit / Critical |
 
 **Liquidation Account：**
 
+| 項目 | 說明 |
+|------|------|
+| Account Value | 帳戶總價值（USDC + 未實現盈虧） |
+| Free Collateral | 可用保證金 |
+| User OI | 平台用戶實際持倉量（不含 MM Account） |
+| 可清算容量 | Free Collateral / IMR |
+| 剩餘容量比例 | 可清算容量 / User OI |
+| 狀態 | Normal / Warning / Limit / Critical |
+
+---
+
+### 5.2 監控頻率
+
+| 分類 | 監控項目 | 頻率 |
+|------|---------|------|
+| 餘額 | IF Account | 1 分鐘 |
+| 餘額 | Liq Account | 1 分鐘 |
+| 流動性 | 深度 | 1 分鐘 |
+| 流動性 | 清算頻率 | 1 小時 |
+| 流動性 | Funding Rate | 每週期 |
+
+---
+
+### 5.3 餘額監控規則
+
+**IF Account：**
+
+> IF Account 接收穿倉倉位後不會主動交易，倉位只能被 claim 走或觸發 ADL
+
+監控兩個覆蓋率：
+- **配置覆蓋率**：確保對 Global Max OI 有足夠覆蓋（最壞情況）
+- **實際覆蓋率**：對實際 User OI 的覆蓋（真實風險）
+
 | 狀態 | 門檻 | 系統動作 |
 |------|------|---------|
-| Normal | ≥ 120% min | 正常運作 |
-| Warning | < 120% min | 通知項目方補充 |
-| Limit | < 80% min | 暫停清算執行，等待補充 |
-| Emergency | < 50% min | Emergency Delist |
+| Normal | 配置覆蓋率 ≥ 120% | 正常運作 |
+| Warning | 配置覆蓋率 < 120% | TG BOT 通知項目方補充 IF |
+| Limit | 配置覆蓋率 < 80% | Reduce-only mode |
+| Critical | MR 達到 ADL 門檻 | 觸發 ADL |
 
-**MM Account（僅 Permissionless）：**
+> 實際覆蓋率用於看板顯示，讓 Broker 了解真實風險狀況
+
+---
+
+**Liquidation Account：**
+
+> 清算永遠不會暫停，但在容量不足前需提前限制新開倉以控制風險
 
 | 狀態 | 門檻 | 系統動作 |
 |------|------|---------|
-| Normal | ≥ 100% min | 正常運作 |
-| Warning | < 100% min | 通知項目方補充 |
-| Limit | < 50% min（持續 30 分鐘） | Reduce-only mode |
+| Normal | 剩餘容量比例 ≥ 50% | 正常運作 |
+| Warning | 剩餘容量比例 < 50% | TG BOT 通知項目方補充 |
+| Limit | 剩餘容量比例 < 30% | Reduce-only mode（限制新開倉） |
+| Critical | 剩餘容量比例 < 10% | 緊急通知 + 限制開倉規模 |
 
-> Standard Listing 由平台 MM 負責，不需監控 MM 餘額
-
-### 5.3 流動性深度監控
+### 5.2 流動性監控
+5.2.1 深度監控
 
 | 狀態 | 門檻 | 系統動作 |
 |------|------|---------|
@@ -449,31 +464,8 @@ mm_config (account, symbol, start_date, sample_seconds, uptime_pct)
 - 若 CEX 2% 深度 < $10k → 降低 `base_max` 至 $10k
 - 若 CEX 2% 深度 < $10k → 降低 `User Max Notional` 至 $50k
 
-### 5.4 價格來源監控
 
-**Standard Listing：**
-
-| 狀態 | 門檻 | 系統動作 |
-|------|------|---------|
-| Normal | ≥ 2 個有效來源 | 正常運作 |
-| Warning | 來源間偏離 > 3% | 警報 + 人工審核 |
-| Limit | 僅剩 1 個有效來源 | 警報 + 密切監控 |
-| Emergency | 0 個有效來源 | 立即暫停交易 |
-
-**Permissionless Listing：**
-
-| 狀態 | 門檻 | 系統動作 |
-|------|------|---------|
-| Normal | ≥ 1 個有效來源 | 正常運作 |
-| Warning | 價格凍結 > 1 分鐘 | 警報 |
-| Emergency | 0 個有效來源 | 立即暫停交易 |
-
-**異常價格處置：**
-- 價格凍結 > 1 分鐘 → 警報
-- 價格與 24h VWAP 偏離 > 50% → 自動暫停交易
-- 價格 5 分鐘內變動 > 30% → 暫停新開倉 10 分鐘
-
-### 5.5 Funding Rate 監控
+### 5.2.2 Funding Rate 監控
 
 | 狀態 | 門檻 | 系統動作 |
 |------|------|---------|
@@ -489,13 +481,6 @@ mm_config (account, symbol, start_date, sample_seconds, uptime_pct)
 | 長期負 Funding | 連續 24hr Funding < -0.1%/8hr | 檢查異常空頭壓力 |
 | Funding 異常波動 | 單週期 Funding 變化 > 0.5% | 警報 + 檢查價格來源 |
 
-### 5.6 事件分級與處置總覽
-
-| 等級 | 觸發條件 | 處置動作 |
-|------|----------|----------|
-| Warning | IF < 120% / 流動性 < $10k / Funding 異常 | 通知項目方 |
-| Limit | IF < 80% / CEX 下架 / 價格來源不足 | Reduce-only mode |
-| Emergency | IF < 50% / 穿倉且 IF 不足 / 0 個價格來源 | Delist + ADL |
 
 ---
 
