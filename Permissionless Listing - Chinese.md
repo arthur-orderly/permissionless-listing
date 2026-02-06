@@ -58,8 +58,8 @@
 
 | 上架階段 | 優先級 | 開發範圍 |
 |------|------|----------|
-| 上架前 | 1 | 獨立帳號體系（IF、Fee、Liquidation、MM） |
 | 上架前 | 1 | 資格驗證|
+| 上架前 | 1 | 獨立帳號體系（IF、Fee、Liquidation、MM） |
 | 上架中 | 2 | 參數規則、風控檢查、自動上架流程 |
 | 上架後 | 1 | 監控系統、警告機制 |
 | 上架後 | 1 | 風控觸發後的限制交易狀態 |
@@ -70,17 +70,21 @@
 
 # 5. 上架前（Pre-listing）
 
-## 5.1 帳號體系
+## 5.1 資格驗證
 
-項目方需建立以下子帳號以支援無許可上架。所有帳號由項目方自行管理與承擔風險。
+- 資格要求：Broker 必須透過 Staking 滿足 Diamond Tier 條件才可申請上架（交易量達成的不適用）。
+- 權限限制：僅限 Broker Admin Account 發起上架申請。
+- 資格異動：若上架後不再滿足 Staking 條件，將無法發起新的上架申請，但已上架的 Symbol 不受影響無需下架。
+
+## 5.2 帳號體系
+
+以下帳戶都需要註冊在當前Broker底下所有帳號由項目方自行管理與承擔風險。
 
 ### 帳號架構圖
 
 ```mermaid
 flowchart TB
-  Broker["Broker Admin Account<br>(Diamond Tier Required)"]
-
-  %% Broker-wide Shared Accounts
+  Broker
   Broker --> IF["IF Account<br>(1)"]
   Broker --> Fee["Fee Account<br>(1)"]
   Broker --> Liq["Liq Account<br>(1)"]
@@ -103,15 +107,15 @@ flowchart TB
 
 ### 帳號類型說明
 
-| 帳號類型 | 數量 | Symbol 關係 | 交易限制 | 轉出限制 |
+| 帳號類型 | 數量 | Symbol 關係 | 交易限制 | 餘額監控 |
 |----------|------|-------------|----------|----------|
-| IF Account | 1 個 | 全部共用 | 僅 RO 單 | 餘額監控，轉出有限制 |
-| Fee Account | 1 個 | 全部共用 | 禁止交易 | 無限制 |
-| Liquidation Account | 1 個 | 全部共用 | 僅 RO 單 | 餘額監控，轉出有限制 |
-| MM Account | N個 | N:1 | 限制交易綁定的 Symbol | 無限制 |
+| IF Account | 1 個 | 全部共用 | 僅 RO 單 | v |
+| Fee Account | 1 個 | 全部共用 | 禁止交易 | x |
+| Liquidation Account | 1 個 | 全部共用 | 僅 RO 單 | v |
+| MM Account | N個 | N:1 | 限制交易綁定的 Symbol | x |
 
 
-## 5.2 帳號管理
+## 5.3 帳號管理
 
 ### IF / Fee / Liquidation Account
 
@@ -121,18 +125,25 @@ flowchart TB
 |------|------|
 | 1 | 進入「帳號管理」頁面 |
 | 2 | 點擊對應的 Account |
-| 3 | 輸入子帳戶ID（須為 Admin Account 的子帳戶） |
+| 3 | 輸入帳戶ID |
 | 4 | 系統確認並完成綁定 |
 | 5 | 上線後仍可異動，只要新的account滿足資格要求|
 
-異動流程（nice to have, later phase）
 
-| 步驟 | 操作 |
-|------|------|
-| 1 | 進入「帳號管理」頁面 |
-| 2 | 點擊對應的 Account |
-| 3 | 輸入子帳戶ID（須為 Admin Account 的子帳戶） |
-| 4 | 系統確認後並定期生效，等待時間不可再次變更（等待時間待確認） |
+`POST /v1/broker/permissionless_listing/bind_account`
+
+- Private Header only available for broker admin
+- A new account input will replace the current account
+
+| Name | Type | Required | Description |
+|------|------|-------------|-------------|
+| account_id | string | Y | must be under this broker |
+| scope | enum | Y | `IF`, `FEE`, `LIQ` |
+
+
+Error message: 
+1. Balance check failed
+2. Account not found
 
 
 
@@ -149,8 +160,24 @@ MM Account 需先建立，上架 Symbol 時再選擇綁定。
 | 5 | 系統確認建立 | - |
 | 6 | 上線後仍可異動，即時生效 |
 
-> 建立後的 MM Account 可在上架 Symbol 時選擇綁定，一個 Symbol 可綁定多個 MM Account。
 
+`POST /v1/broker/permissionless_listing/mm_account`
+
+- Private Header only available for broker admin
+- A new account input add to current symbol support
+
+| Name | Type | Required | Description |
+|------|------|-------------|-------------|
+| account_id | string | Y | must be under this broker |
+| symbol | string | Y | The symbol to bind |
+| rate_limit | number | Y | The rate limit to set |
+
+Error message: 
+1. Symbol not found
+2. Account not found
+3. Rate limit out of range
+
+#TODO: MM SQL and Inactive MM
 
 # 6. 申請上架（Listing）
 
