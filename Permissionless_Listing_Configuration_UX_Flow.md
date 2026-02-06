@@ -2,31 +2,36 @@
 
 ## 1. 目標
 
-定義「用戶先填入關鍵參數，系統查詢接口，再依返回結果引導後續填寫」的配置流程，確保：
-- 用戶不會先填錯一大段才被拒絕
-- 前後端對齊同一套 gate 規則
-- 可區分 `可繼續`、`可繼續但警示`、`不可繼續`
+定義「用戶先填入關鍵參數，系統查詢接口，再依返回結果引導後續填寫」的配置流程， 前後端對齊同一套 gate 規則。
+---
 
 ---
 
-## 2. 互動模式（核心）
+## 3. 設置流程
 
-- 單一入口參數：`symbol`
-- 首次查詢：用戶輸入 `symbol` 後，點擊 `Check`
-- 系統回傳：可配置欄位、建議值、限制值、風險提示、是否可進下一步
-- 用戶只填「Broker 可配」欄位；不可配欄位僅展示
+### Step 1: 選擇Symbol
+- 用戶操作: 輸入 `symbol` 或 `coingecko_api_id`
+- 前端行為: 送出預檢查並載入配置上下文
+- 後端接口: `POST /v1/broker/listing/symbol`
+  - 通過的話會回傳這個symbol的參數範圍在response
 
----
 
-## 3. 頁面流程（Wizard）
+### Step 2: 填寫Broker可配參數
+- 用戶操作: 填寫 Broker 可配欄位（如 `quote_tick`, `base_min`, `IMR`, `Max Notional(User)`）
+- 前端行為: 每次欄位變更做即時校驗
+- 後端接口: `POST /v1/broker/listing/pre_check`
+- 條件: 所有 required 欄位都通過才可進入下一步
 
-| Step | 用戶操作 | 前端行為 | 後端接口 | 可否下一步 |
-|------|----------|----------|----------|------------|
-| 1. Basic Check | 輸入 `symbol`、選 `時間 T` | 送出預檢查並載入配置上下文 | `POST /listing/config/context` | `decision != BLOCK` 才可 |
-| 2. Param Fill | 填寫 Broker 可配欄位（如 `quote_tick`, `base_min`, `IMR`, `Max Notional(User)`） | 每次欄位變更做即時校驗 | `POST /listing/config/validate` | 所有 required 欄位 valid 才可 |
-| 3. Account Check | 選擇 IF/Liq/MM/Fee account | 檢查 account 綁定、餘額是否達標 | `POST /listing/config/account-check` | 全部 pass 才可 |
-| 4. Review | 檢查摘要、警示確認 | 顯示最終參數 diff 與警示 | - | 勾選確認後可提交 |
-| 5. Submit | 點擊提交 | 建立 NEW，觸發 pre-check | `POST /listing/submit` | 成功後進 NEW/PENDING |
+### Step 3: Preview
+- 用戶操作: Preview 
+- 前端行為: 顯示最終參數與MM Required
+- 條件: 勾選確認後可提交
+
+### Step 4: Submit
+- 用戶操作: 選擇上架時間，點擊提交
+- 前端行為: 建立 NEW，觸發 pre-check
+- 後端接口: `POST /v1/broker/listing/submit`
+- 結果: 成功後進 NEW
 
 ---
 
