@@ -64,7 +64,7 @@
 | 上架後 | 1 | 監控系統、警告機制 |
 | 上架後 | 1 | 風控觸發後的限制交易狀態 |
 | 下架 | 2 | 比照現在的下架流程，完成自動化 |
-| 上架前/上架後 | 3 | 獨立手續費配置|
+| 上架前/上架後 | 3 | Symbol獨立手續費加成|
 
 
 
@@ -145,7 +145,7 @@ MM Account 需先建立，上架 Symbol 時再選擇綁定。
 | 5 | 上線後仍可異動，即時生效 |
 
 
-`GET /v1/broker/permissionless_listing/accounts`
+`GET /v1/broker/listing/accounts`
 
 - Private Header only available for broker admin
 - Return all accounts of this broker
@@ -167,7 +167,7 @@ MM Account 需先建立，上架 Symbol 時再選擇綁定。
 }
 ```
 
-`POST /v1/broker/permissionless_listing/accounts`
+`POST /v1/broker/listing/accounts`
 
 - Private Header only available for broker admin
 - MM accounts can be bound multiple times (additive).
