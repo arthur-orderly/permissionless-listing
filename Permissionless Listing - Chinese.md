@@ -161,24 +161,6 @@ MM Account 需先建立，上架 Symbol 時再選擇綁定。
 
 ## 6.1 上架流程
 
-| 階段 | 觸發條件 | 執行者 | 動作 |
-|------|---------|--------|------|
-| 提交 | 用戶確認 | CEFI | 建立 NEW Record → Pre-check |
-| 上傳 | Pre-check 通過 | Operator | 上傳 symbol, symbolHash, symbolContractID |
-| 同步 | Contract Event | Indexer | 同步狀態至 CEFI |
-| 等待 | - | CEFI | 等待時間 T 到達 |
-| Post-only | 時間 T 到達 | CEFI | 開放 MM 掛單，監控深度 |
-| Active | 深度達標 | CEFI | 開放所有用戶交易 |
-
-**時間 T 規則：**
-- T 必須 ≥ 當前時間 + 1 小時（以送出申請的系統時間為準）
-- T 必須為整點時間（例：現在 14:35，最早可選 16:00）
-- 不支援立即上架，時間不符合規則會拒絕
-
----
-
-### 6.1.1 系統流程
-
 ```mermaid
 sequenceDiagram
     participant User
@@ -188,7 +170,7 @@ sequenceDiagram
     participant Indexer
 
     User->>CEFI: 提交申請
-    CEFI->>CEFI: 建立 NEW Record
+    CEFI->>CEFI: 建立 NEW 
     CEFI->>CEFI: Pre-check
     CEFI->>Operator: ListingSymbol
     Operator->>Contract: addSymbol
@@ -206,10 +188,13 @@ sequenceDiagram
     CEFI->>CEFI: 狀態 → ACTIVE
     CEFI-->>User: 上線完成
 ```
+**時間 T 規則：**
+- T 必須 ≥ 當前時間 + 1 小時（以送出申請的系統時間為準）
+- T 必須為整點時間（例：現在 14:35，最早可選 16:00）
+- 不支援立即上架，時間不符合規則會拒絕
 
 
-
-### 6.1.2 狀態變化表
+### 6.1.1 狀態變化表
 
 | 狀態 | 時間段定義 | 目標狀態 | 到目標狀態權限 |
 |------|------------|----------------------|------|
