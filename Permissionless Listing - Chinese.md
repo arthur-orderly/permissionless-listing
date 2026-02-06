@@ -8,7 +8,6 @@
 4. [Frontend Requirements](./Permissionless_Listing_Frontend_Requirements.md)
 5. [Slashing System](./Slashing_System.md)
 
----
 
 # 1. 背景與問題
 
@@ -20,7 +19,7 @@
 
 因此，建立「無許可上架 (Permissionless Listing)」機制勢在必行。此機制將允許符合資格的 Broker（項目方）無許可完成上架，而平台則透過標準化的規則與自動化檢查來確保安全性與一致性。
 
----
+
 
 # 2. 目標
 
@@ -37,7 +36,7 @@
    - 平台回歸技術提供者角色，專注於撮合與清算服務
 3. 收益共享：提供 30%-50% 的交易手續費分潤作為激勵，吸引優質項目方參與
 
----
+
 
 # 3. 限制與邊界
 
@@ -54,7 +53,6 @@
 | 9 | 保證金模式 | 這些Symbol僅支援 Isolated Margin (逐倉) |
 | 10 | RWA 限制 | RWA 類資產暫不支援無許可上架 |
 
----
 
 # 4. 無許可上架開發計畫
 
@@ -69,7 +67,6 @@
 | 上架前/上架後 | 3 | 獨立手續費配置|
 
 
----
 
 # 5. 上架前（Pre-listing）
 
@@ -113,7 +110,6 @@ flowchart TB
 | Liquidation Account | 1 個 | 全部共用 | 僅 RO 單 | 餘額監控，轉出有限制 |
 | MM Account | N個 | N:1 | 限制交易綁定的 Symbol | 無限制 |
 
----
 
 ## 5.2 帳號管理
 
@@ -155,7 +151,6 @@ MM Account 需先建立，上架 Symbol 時再選擇綁定。
 
 > 建立後的 MM Account 可在上架 Symbol 時選擇綁定，一個 Symbol 可綁定多個 MM Account。
 
----
 
 # 6. 申請上架（Listing）
 
@@ -212,7 +207,6 @@ sequenceDiagram
 各項 Listing 參數與風控規則：
  **[Orderly Perps Listing Parameters Rules](./Orderly_Perps_Listing_Parameters_Rules.md)**  
 
----
 
 # 7. 上架後（Post-listing）
 
