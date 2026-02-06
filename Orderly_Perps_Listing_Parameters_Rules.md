@@ -40,8 +40,7 @@ BINANCE, HUOBI, OKX, GATEIO, BYBIT, KUCOIN, COINBASE, MEXC, BITGET, BINGX, HYPER
 | max_leverage | Broker  | 最大槓桿（5x / 10x / 20x） |
 | global_max_oi | Broker  | 全局最大持倉量 |
 | max_notional_user | Broker  | 單用戶最大名目金額 |
-| taker_fee_markup | Broker | 手續費加成 |
-| maker_fee_markup | Broker | 手續費加成 |
+
 | quote_min | 固定 | 0 |
 | quote_max | 固定 | 100,000（BTC: 200,000） |
 | min_notional | 固定 | 10 USDC |
@@ -176,6 +175,14 @@ Broker從以下選項中選擇，系統根據條件自動限制可選範圍：
 | User Max Notional | 依市值規則 100% | 降低 50% |
 | Max Leverage | 依規則 | 上限 5x |
 | 價格偏離檢查 | 來源間比對 | 與 24h VWAP 比對 |
+
+**Global Max OI 限制總表：**
+
+| 上架類型 | 價格來源數 | Global Max OI | User Max Notional |
+|---------|-----------|---------------|-------------------|
+| Standard | ≥ 3 | 依市值規則 100% | 依市值規則 100% |
+| Permissionless | ≥ 2 | 依市值規則 100% | 依市值規則 100% |
+| Permissionless | = 1 | 依市值規則 **50%** | 依市值規則 **50%** |
 
 #### 2.3.3 槓桿與保證金
 
@@ -451,8 +458,9 @@ MM Account 不使用 Rate 公式計算最低餘額，改為監控流動性深度
 | Limit | 剩餘容量比例 < 30% | Reduce-only mode（限制新開倉） |
 | Critical | 剩餘容量比例 < 10% | 緊急通知 + 限制開倉規模 |
 
-### 5.2 流動性監控
-5.2.1 深度監控
+### 5.4 流動性監控
+
+#### 5.4.1 深度監控
 
 | 狀態 | 門檻 | 系統動作 |
 |------|------|---------|
@@ -465,7 +473,7 @@ MM Account 不使用 Rate 公式計算最低餘額，改為監控流動性深度
 - 若 CEX 2% 深度 < $10k → 降低 `User Max Notional` 至 $50k
 
 
-### 5.2.2 Funding Rate 監控
+#### 5.4.2 Funding Rate 監控
 
 | 狀態 | 門檻 | 系統動作 |
 |------|------|---------|
@@ -483,6 +491,9 @@ MM Account 不使用 Rate 公式計算最低餘額，改為監控流動性深度
 
 
 ---
+
+## 6 Broker
+
 
 ## 6. 附錄
 
