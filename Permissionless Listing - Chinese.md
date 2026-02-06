@@ -130,21 +130,6 @@ flowchart TB
 | 5 | 上線後仍可異動，只要新的account滿足資格要求|
 
 
-`POST /v1/broker/permissionless_listing/bind_account`
-
-- Private Header only available for broker admin
-- A new account input will replace the current account
-
-| Name | Type | Required | Description |
-|------|------|-------------|-------------|
-| account_id | string | Y | must be under this broker |
-| scope | enum | Y | `IF`, `FEE`, `LIQ` |
-
-
-Error message: 
-1. Balance check failed
-2. Account not found
-
 
 
 ### MM Account
@@ -155,29 +140,51 @@ MM Account 需先建立，上架 Symbol 時再選擇綁定。
 |------|------|------|
 | 1 | 進入「帳號管理」頁面 | - |
 | 2 | 點擊「新增 MM Account」 | 檢查是否已達上限 |
-| 3 | 輸入帳號名稱 | ≤ 50 字元 |
+| 3 | 系統確認建立 | - |
 | 4 | 配置手續費 | 僅在Broker可配範圍內，不能小於base fee rate |
-| 5 | 系統確認建立 | - |
-| 6 | 上線後仍可異動，即時生效 |
+| 5 | 上線後仍可異動，即時生效 |
 
 
-`POST /v1/broker/permissionless_listing/mm_account`
+`GET /v1/broker/permissionless_listing/accounts`
 
 - Private Header only available for broker admin
-- A new account input add to current symbol support
+- Return all accounts of this broker
 
-| Name | Type | Required | Description |
+```
+{
+  "success": true,
+  "timestamp": 1702989203989,
+  "data": {
+    "if_account": "IF_ACCOUNT_ID",
+    "fee_account": "FEE_ACCOUNT_ID",
+    "liquidation_account": "LIQUIDATION_ACCOUNT_ID",
+    "mm_accounts": [
+      "MM_ACCOUNT_ID_1",
+      "MM_ACCOUNT_ID_2",
+      "MM_ACCOUNT_ID_3"
+    ]
+  }
+}
+```
+
+`POST /v1/broker/permissionless_listing/accounts`
+
+- Private Header only available for broker admin
+- MM accounts can be bound multiple times (additive).
+- Other account types: New binding replaces the existing one.
+
+| Field | Type | Required | Description |
 |------|------|-------------|-------------|
 | account_id | string | Y | must be under this broker |
-| symbol | string | Y | The symbol to bind |
-| rate_limit | number | Y | The rate limit to set |
+| scope | enum | Y | `IF`, `FEE`, `LIQ`, `MM` |
+
 
 Error message: 
-1. Symbol not found
+1. Balance check failed
 2. Account not found
-3. Rate limit out of range
+3. You have too many MM accounts
+4. Insufficient staked ORDER tokens
 
-#TODO: MM SQL and Inactive MM
 
 # 6. 申請上架（Listing）
 
@@ -216,18 +223,32 @@ sequenceDiagram
 - 不支援立即上架，時間不符合規則會拒絕
 
 
-### 6.1.1 狀態變化表
+### 6.1.1 狀態定義與轉換
 
-| 狀態 | 時間段定義 | 目標狀態 | 到目標狀態權限 |
-|------|------------|----------------------|------|
-| NEW | Pre-check 通過後，到提交之前 | PENDING | BROKER |
-| PENDING | 提交寫入合約後，到時間 T 到達前 | POST_ONLY | SYSTEM |
-| POST_ONLY | 時間 T 到達後，到市場深度達標前 | ACTIVE<br>DELISTING | SYSTEM <br> BROKER |
-| ACTIVE | 深度達標後的正常交易期間 | REDUCE_ONLY | SYSTEM  |
-| REDUCE_ONLY | 風控或營運觸發後的限制交易期間 | ACTIVE<br>DELISTING |  SYSTEM |
-| DELISTING | 進入下架流程後，到完成下架前 | DELISTED | SYSTEM |
+| 狀態 | 時間段定義 |
+|------|------------|
+| NEW | 後端檢核通過後 |
+| PENDING | 合約寫入成功後，到時間 T 到達前 |
+| POST_ONLY | 時間 T 到達後，到市場深度達標前 |
+| ACTIVE | 市場深度達標後的正常交易期間 |
+| REDUCE_ONLY | 風控或營運觸發後的限制交易期間 |
+| DELISTING | 進入下架流程後，到完成下架前 |
+| DELISTED | 下架完成後 |
 
-> **Orderly Admin 可以手動強制變更狀態**
+| From | 觸發條件 | To | 權限 |
+|------|----------|----|------|
+| NEW | 後端檢核通過+合約寫入成功 | PENDING | SYSTEM |
+| PENDING | Broker取消上架 | NEW | BROKER ADMIN |
+| PENDING | 時間 T 到達 | POST_ONLY | SCHEDULER |
+| POST_ONLY | 市場深度達標 | ACTIVE | SYSTEM |
+| POST_ONLY | Broker取消上架 | DELISTED | BROKER ADMIN |
+| ACTIVE | 流動性或風險判定 | REDUCE_ONLY | SYSTEM |
+| ACTIVE | Broker申請下架 | REDUCE_ONLY | BROKER ADMIN |
+| REDUCE_ONLY | 風險解除 | ACTIVE | ORDERLY ADMIN |
+| REDUCE_ONLY | 風控/Broker申請下架時間到達 | DELISTING | SYSTEM |
+| DELISTING | 下架流程完成 | DELISTED | SYSTEM |
+
+
 
 ## 6.2 自動化檢查
 
