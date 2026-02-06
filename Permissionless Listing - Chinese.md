@@ -209,28 +209,23 @@ sequenceDiagram
 
 
 
-### 6.1.2 狀態與權限
+### 6.1.2 狀態變化表
 
-以下僅說明「誰有權限把狀態移到哪個狀態」，具體條件請參考 Listing Rules：
-| 狀態 | 權限 | 說明 |
-|------|------|------|
-| NEW | Broker Admin | 提交申請 + Pre-check 通過 + 合約寫入成功 之後 |
-| PENDING | SystemScheduler | 等待時間 T 到達之前 |
-| POST_ONLY | System | 時間T到達之後 |
-| ACTIVE | System  | 流動性達標之後 |
-| REDUCE_ONLY | System | 觸發RO規則之後 |
-| REDUCE_ONLY | Admin | 手動申請之後 |
-| DELISTING | Broker Admin / System | - |
-| DELISTED | System | 下架流程完成 |
+| 狀態 | 時間段定義 | 目標狀態 | 到目標狀態權限 |
+|------|------------|----------------------|------|
+| NEW | Pre-check 通過後，到提交之前 | PENDING | BROKER |
+| PENDING | 提交寫入合約後，到時間 T 到達前 | POST_ONLY | SYSTEM |
+| POST_ONLY | 時間 T 到達後，到市場深度達標前 | ACTIVE<br>DELISTING | SYSTEM <br> BROKER |
+| ACTIVE | 深度達標後的正常交易期間 | REDUCE_ONLY | SYSTEM  |
+| REDUCE_ONLY | 風控或營運觸發後的限制交易期間 | ACTIVE<br>DELISTING |  SYSTEM |
+| DELISTING | 進入下架流程後，到完成下架前 | DELISTED | SYSTEM |
 
-
-> **Reduce-only 退出規則**：目前僅允許 Orderly Admin 手動解除，無自動退出機制。
+> **Orderly Admin 可以手動強制變更狀態**
 
 ## 6.2 自動化檢查
 
 各項 Listing 參數與風控規則：
  **[Orderly Perps Listing Parameters Rules](./Orderly_Perps_Listing_Parameters_Rules.md)**  
-
 
 ---
 
