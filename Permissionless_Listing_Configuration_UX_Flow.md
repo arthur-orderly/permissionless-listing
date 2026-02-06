@@ -9,89 +9,81 @@
 ## 2. 流程（Step 1 - Step 4）
 
 ### Step 1: 選擇 Symbol
-- 用戶操作：輸入 `symbol` 或 `coingecko_api_id`
+- 用戶操作：輸入 `symbol` 或 `api_id`
 - 前端行為：送出預檢查並載入配置上下文
 - 後端接口：`POST /v1/broker/listing/symbol`
-- 重點：若通過，response 必須回傳該 symbol 的可配置欄位、限制範圍、預設值
+- 條件：接口回傳 通過 才可進 Step 2
 
 ### Step 2: 填寫 Broker 可配參數
-- 用戶操作：填寫 Broker 可配欄位（如 `quote_tick`, `base_min`, `imr`, `max_notional_user`）
-- 前端行為：每次欄位變更做即時校驗；按 Next 前做整體校驗
+- 用戶操作：填寫 Broker 可配欄位
+- 前端行為：每次欄位變更做即時校驗
 - 後端接口：`POST /v1/broker/listing/pre_check`
-- 條件：所有 required 欄位通過才可進下一步
+- 條件：所有 required 欄位都通過才可進入下一步
 
 ### Step 3: Preview
 - 用戶操作：點擊 Preview
-- 前端行為：顯示最終參數、MM Required、IF 最低需求、警示資訊
+- 前端行為：顯示最終參數與 MM Required / Min IF Required
 - 條件：勾選確認後可提交
 
 ### Step 4: Submit
-- 用戶操作：選擇上架時間 `listing_time`，點擊提交
-- 前端行為：建立 NEW，觸發提交流程
+- 用戶操作：選擇上架時間，點擊提交
+- 前端行為：建立 NEW，觸發 pre-check
 - 後端接口：`POST /v1/broker/listing/submit`
 - 結果：成功後進 `NEW`
 
 ---
 
-## 3. API 詳細規格
+## 3. API 規格
 
 ### 3.1 `POST /v1/broker/listing/symbol`
 
-用途：取得 symbol 上下文，決定是否允許進入配置。
+用途：取得 Symbol 配置上下文，決定是否可進入配置。
 
-Request 欄位：
+Request：
 
 | 欄位 | 型別 | 必填 | 說明 |
 |------|------|------|------|
 | symbol | string | 二選一 | 交易對基礎幣代碼 |
-| coingecko_api_id | string | 二選一 | CoinGecko API id |
+| api_id | string | 二選一 | CoinGecko API ID |
 
 Request 規則：
-- `symbol`、`coingecko_api_id` 至少填一個
-- 若兩者都填，後端需校驗一致性
+- `symbol`、`api_id` 至少填一個
+- 若兩者都填，以api_id為主
 
-Response:
-```json
-{
-  "decision": "ALLOW_WITH_WARNINGS",
-  "reasons": ["single_price_source"],
-  "warnings": ["price source = 1, leverage/notional will be tightened"],
-  "editable_fields": ["quote_tick", "base_min", "base_tick", "imr", "max_notional_user"],
-  "locked_fields": ["min_notional", "mmr", "funding_period"],
-  "defaults": {
-    "min_notional": 10,
-    "price_scope": 0.6
-  },
-  "constraints": {
-    "quote_tick": {
-      "max_decimals": 4,
-      "warn_ratio_gt": 0.01
-    },
-    "imr": {
-      "min": 0.1,
-      "max": 0.2
-    },
-    "max_notional_user": {
-      "min": 50000,
-      "max": 1000000
-    }
-  },
-  "derived": {
-    "price_sources": 1,
-    "market_cap_rank": 120,
-    "global_max_oi_factor": 0.5,
-    "user_notional_factor": 0.5,
-    "leverage_cap": 5
-  }
-}
-```
+Response：
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| success | boolean | 是否成功 |
+| timestamp | integer | 毫秒時間戳 |
+| data.decision | string | `ALLOW` / `ALLOW_WITH_WARNINGS` / `BLOCK` |
+| data.reasons | string[] | 阻擋或收斂原因碼 |
+| data.warnings | string[] | 警示文案 |
+| data.editable_fields | string[] | Broker 可填欄位 |
+| data.locked_fields | string[] | 僅展示不可填欄位 |
+| data.defaults | object | 預設值集合 |
+| data.defaults.min_notional | number | 最小名目預設值 |
+| data.defaults.price_scope | number | 價格範圍係數預設值 |
+| data.constraints | object | 欄位限制集合 |
+| data.constraints.quote_tick.max_decimals | integer | `quote_tick` 最大小數位 |
+| data.constraints.quote_tick.warn_ratio_gt | number | `quote_tick / price` 警示門檻 |
+| data.constraints.imr.min | number | `imr` 下限 |
+| data.constraints.imr.max | number | `imr` 上限 |
+| data.constraints.max_notional_user.min | number | `max_notional_user` 下限 |
+| data.constraints.max_notional_user.max | number | `max_notional_user` 上限 |
+| data.derived | object | 派生結果（前端展示） |
+| data.derived.price_sources | integer | 有效價格來源數 |
+| data.derived.market_cap_rank | integer | 市值排名 |
+| data.derived.global_max_oi_factor | number | `global_max_oi` 調整係數 |
+| data.derived.user_notional_factor | number | `max_notional_user` 調整係數 |
+| data.derived.leverage_cap | number | 槓桿上限 |
 
 Decision 對應前端行為：
 - `ALLOW`：直接進 Step 2
 - `ALLOW_WITH_WARNINGS`：顯示警示，允許進 Step 2
 - `BLOCK`：顯示阻斷原因，不可進 Step 2
 
-Error codes：
+可能錯誤碼：
 - `SYMBOL_NOT_FOUND`
 - `BLACKLISTED`
 - `RWA_NOT_SUPPORTED`
@@ -101,59 +93,50 @@ Error codes：
 
 ### 3.2 `POST /v1/broker/listing/pre_check`
 
-用途：欄位級 + 整體校驗。
+用途：欄位級與整體校驗。
 
-Request 欄位：
+Request：
 
 | 欄位 | 型別 | 必填 | 說明 |
 |------|------|------|------|
 | symbol | string | 是 | 目標 symbol |
+| mode | string | 否 | `field` 或 `full`，預設 `full` |
+| validate_field | string | 否 | `mode=field` 時必填，指定校驗欄位 |
 | inputs | object | 是 | Broker 填寫參數集合 |
 | inputs.quote_tick | string | 視 editable_fields | 最小價格變動單位 |
 | inputs.base_min | string | 視 editable_fields | 最小下單數量 |
 | inputs.base_tick | string | 視 editable_fields | 最小數量變動單位 |
 | inputs.imr | string | 視 editable_fields | 初始保證金率 |
 | inputs.max_notional_user | string | 視 editable_fields | User 最大名目 |
-| mode | string | 否 | `field` 或 `full`，預設 `full` |
 
-Request 說明：
-- `mode=field`：單欄位即時校驗
-- `mode=full`：Next 前整體校驗
+Request 規則：
+- `mode=field`：僅驗單欄位（即時校驗）
+- `mode=full`：驗整份輸入（Next 前校驗）
 
-Response:
-```json
-{
-  "decision": "ALLOW_WITH_WARNINGS",
-  "field_results": [
-    {
-      "field": "quote_tick",
-      "valid": false,
-      "warning": false,
-      "code": "DECIMAL_EXCEED",
-      "message": "quote_tick decimals must be <= min(decimal_cex, decimal_oracle)"
-    },
-    {
-      "field": "base_min",
-      "valid": true,
-      "warning": true,
-      "code": "MIN_NOTIONAL_EDGE",
-      "message": "close to min_notional boundary"
-    }
-  ],
-  "warnings": ["single source: leverage/notional tightened"],
-  "computed": {
-    "mm_required": "...",
-    "min_if_required": "..."
-  }
-}
-```
+Response：
 
-前端行為：
-- `valid=false`：欄位紅框 + message，禁用 Next
-- `warning=true`：欄位黃框 + message，可繼續
-- `decision=BLOCK`：整步阻擋
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| success | boolean | 是否成功 |
+| timestamp | integer | 毫秒時間戳 |
+| data.decision | string | `ALLOW` / `ALLOW_WITH_WARNINGS` / `BLOCK` |
+| data.field_results | object[] | 欄位級校驗結果 |
+| data.field_results[].field | string | 欄位名稱 |
+| data.field_results[].valid | boolean | 是否通過 |
+| data.field_results[].warning | boolean | 是否為警示 |
+| data.field_results[].code | string | 校驗碼 |
+| data.field_results[].message | string | 提示文案 |
+| data.warnings | string[] | 整體警示 |
+| data.computed | object | 衍生結果 |
+| data.computed.mm_required | string | MM Requirement 摘要 |
+| data.computed.min_if_required | string | 最低 IF 需求 |
 
-Error codes：
+Decision 對應前端行為：
+- 任一 `field_results[].valid=false`：欄位紅框，禁用 Next
+- 任一 `field_results[].warning=true`：欄位黃框，可繼續
+- `data.decision=BLOCK`：整步阻擋
+
+可能錯誤碼：
 - `SYMBOL_CONTEXT_MISSING`
 - `VALIDATION_FAILED`
 
@@ -163,7 +146,7 @@ Error codes：
 
 用途：提交上架申請。
 
-Request 欄位：
+Request：
 
 | 欄位 | 型別 | 必填 | 說明 |
 |------|------|------|------|
@@ -179,16 +162,18 @@ Request 欄位：
 | ack.risk | boolean | 是 | 風險確認 |
 | ack.terms | boolean | 是 | 條款確認 |
 
-Response:
-```json
-{
-  "listing_id": "LST_12345",
-  "status": "NEW",
-  "next_status": "PENDING"
-}
-```
+Response：
 
-Error codes：
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| success | boolean | 是否成功 |
+| timestamp | integer | 毫秒時間戳 |
+| data.listing_id | string | 上架申請 ID |
+| data.status | string | 建立後狀態（固定 `NEW`） |
+| data.next_status | string | 預期下一狀態（例：`PENDING`） |
+| data.submit_time | string | 申請送出時間（ISO 8601） |
+
+可能錯誤碼：
 - `PRECHECK_REQUIRED`
 - `ACCOUNT_INSUFFICIENT`
 - `LISTING_TIME_INVALID`
@@ -196,35 +181,34 @@ Error codes：
 
 ---
 
-## 4. 提交 Gate（前端）
+## 4. 前端 Gate 規則
 
 提交按鈕啟用條件：
 - required 欄位全部 `valid=true`
-- `decision != BLOCK`
+- `data.decision != BLOCK`
 - 帳戶檢查通過
 - `ack.risk=true` 且 `ack.terms=true`
 
-未滿足條件時：
+未滿足條件：
 - 按鈕 disabled
 - 顯示第一個阻斷原因
 
 ---
 
-## 5. 與 Listing Rules 對齊項目
+## 5. 與 Listing Rules 對齊
 
 - `quote_tick` 精度校驗：
   - 有 CEX：`decimals(quote_tick) <= min(decimal_cex, decimal_oracle)`
   - 無 CEX：`decimals(quote_tick) <= decimal_oracle`
-- `price_sources=1` 時：
-  - `global_max_oi` 降為 50%
-  - `max_notional_user` 降為 50%
-  - `max_leverage` 上限收斂為 5x
-- IF 最低需求：以 `Global Max OI_adjusted` 計算 `min_IF`
+- 價格來源數 (`price_sources`) 影響風控上限：
+  - `price_sources=1`：`global_max_oi`、`max_notional_user`、`max_leverage` 需收斂
+  - `price_sources>=2`：可使用標準上限
+- IF 最低需求：以調整後 `global_max_oi` 計算 `min_if_required`
 
 ---
 
 ## 6. 錯誤與重試 UX
 
-- `BLOCK`：顯示阻斷原因 + 建議操作
-- 網路失敗：保留已填值 + Retry
-- 超時：顯示 checking 狀態，30 秒後允許手動重試
+- `BLOCK`：顯示阻斷原因與修正方向
+- 網路失敗：保留已填值並允許 Retry
+- 超時：顯示 checking 狀態，30 秒後可手動重試
