@@ -1,0 +1,128 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 2cm; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; color: #1a1a1a; }
+h1 { color: #6219FD; border-bottom: 2px solid #6219FD; padding-bottom: 10px; }
+h2 { color: #333; margin-top: 30px; }
+h3 { color: #555; }
+code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+pre { background: #f4f4f4; padding: 16px; border-radius: 8px; overflow-x: auto; }
+strong { color: #333; }
+</style></head><body><h1>Orderly Permissionless Listing System</h1>
+<h2>Technical Proposal &amp; Reference Implementation</h2>
+<p><strong>Prepared by:</strong> Arthur DEX (arthur-orderly)
+<strong>Date:</strong> February 8, 2026
+<strong>Version:</strong> 1.0</p>
+<hr />
+<h3>Executive Summary</h3>
+<p>We've built a complete reference implementation for Orderly's permissionless listing system based on the published specifications. This includes production-ready smart contracts, a full frontend, and comprehensive test coverage. We propose this as either the official implementation or a starting point for Orderly's engineering team.</p>
+<h3>Problem Statement</h3>
+<ul>
+<li>Orderly currently requires a manual listing process for new perpetual futures pairs</li>
+<li>This limits the speed of new market launches and creates a bottleneck</li>
+<li>Permissionless listing enables any qualified entity to list new perp markets, dramatically expanding Orderly's market coverage</li>
+</ul>
+<h3>Solution Architecture</h3>
+<h4>Smart Contracts (Arbitrum)</h4>
+<ol>
+<li>
+<p><strong>ListingRegistry</strong> — UUPS upgradeable core registry. Manages listing lifecycle (Pending → Active → Suspended → Deactivated). Role-based access control (LISTER, ADMIN, ORACLE).</p>
+</li>
+<li>
+<p><strong>ListingStake</strong> — Staking mechanism requiring $50,000 USDC minimum with 6-month lock period. Implements three slashing tiers from the spec: 100% (rug pull), 50% (abandonment), variable 0-50% (manipulation).</p>
+</li>
+<li>
+<p><strong>FeeVault</strong> — Fee collection and distribution with configurable splits (default: 50% protocol, 30% lister, 20% insurance fund).</p>
+</li>
+<li>
+<p><strong>SlashingOracle</strong> — Decentralized governance for slashing decisions. 3-of-5 multisig with mandatory 48-hour timelock between proposal and execution.</p>
+</li>
+<li>
+<p><strong>ListingLib</strong> — Pure library implementing all parameter derivation from the spec, including leverage caps by market cap tier (&lt;$30M→5x, $30-100M→10x, &gt;$100M→20x), IMR/MMR calculation, funding rate bounds.</p>
+</li>
+</ol>
+<h4>Frontend Application</h4>
+<ul>
+<li>4-step listing wizard matching the Configuration UX Flow spec</li>
+<li>Real-time dashboard with listing status, volume, and risk metrics</li>
+<li>Risk monitor with automated alerts for slashing threshold proximity</li>
+<li>Admin panel for multisig governance participants</li>
+<li>WalletConnect integration on Arbitrum</li>
+</ul>
+<h4>Key Design Decisions</h4>
+<ul>
+<li><strong>UUPS Proxy Pattern:</strong> Allows contract upgrades as the system evolves, critical for a V1 launch</li>
+<li><strong>Separation of Concerns:</strong> Staking, registry, fees, and governance in separate contracts for security isolation</li>
+<li><strong>Conservative Defaults:</strong> Minimum $50K stake, 6-month lock, 48hr timelock — all erring on the side of security</li>
+<li><strong>Spec Compliance:</strong> All parameter derivations (leverage caps, IMR/MMR, fee bounds) follow the published specifications exactly</li>
+</ul>
+<h3>Parameter Derivation</h3>
+<p>Key formulas implemented in <code>ListingLib.sol</code>:</p>
+<ul>
+<li><strong>Leverage:</strong> <code>min(tier_max, floor(1/base_imr))</code></li>
+<li><strong>IMR tiers:</strong> &lt;$30M mcap → 20% (5x), $30-100M → 10% (10x), &gt;$100M → 5% (20x)</li>
+<li><strong>MMR:</strong> <code>IMR / 2</code> (with 6% exception for certain tiers)</li>
+<li><strong>Fee bounds:</strong> Taker markup 0-5bps, Maker markup 0-2bps</li>
+<li>~20 parameters auto-derived from just 5 inputs (token address, target leverage, fee preferences, market cap, desired spread)</li>
+</ul>
+<h3>Security Considerations</h3>
+<ul>
+<li>All contracts follow Checks-Effects-Interactions pattern</li>
+<li>Reentrancy guards on all external calls</li>
+<li>Role-based access with granular permissions</li>
+<li>Timelock on all slashing actions prevents rushed/malicious slashes</li>
+<li>USDC approval pattern (approve → transferFrom) for stake deposits</li>
+<li>Comprehensive test suite: 20 tests covering edge cases, access control, math precision</li>
+</ul>
+<h3>Integration with Orderly Backend</h3>
+<p>How the on-chain layer connects to Orderly's existing infrastructure:</p>
+<ol>
+<li>Lister stakes on-chain → <code>ListingCreated</code> event emitted</li>
+<li>Orderly backend listens for events via indexer</li>
+<li>Backend validates parameters and enables the trading pair on the orderbook</li>
+<li>Ongoing: backend monitors MM activity, reports to SlashingOracle if abandonment detected</li>
+<li>Fee markups applied at the matching engine level, collected on-chain via FeeVault</li>
+</ol>
+<h3>Test Results</h3>
+<ul>
+<li><strong>20 unit tests</strong>, all passing</li>
+<li><strong>Coverage:</strong> listing lifecycle, slashing scenarios (all 3 tiers), fee distribution math, governance flow, access control, parameter validation</li>
+<li><strong>Gas estimates</strong> for key operations included in test output</li>
+</ul>
+<h3>Deliverables</h3>
+<ol>
+<li>✅ Smart contracts (Foundry project, Solidity 0.8.24)</li>
+<li>✅ Full test suite (20 tests)</li>
+<li>✅ Frontend application (deployed to Vercel)</li>
+<li>✅ Deployment scripts for Arbitrum</li>
+<li>✅ Documentation</li>
+</ol>
+<h3>Open Questions / Gaps in Current Spec</h3>
+<ol>
+<li>
+<p><strong>Market Maker Requirement (Section 3.3)</strong> — Spec marks this as TBD. Our implementation supports an optional MM account requirement but doesn't enforce specific MM behavior. Recommend: require lister to designate an MM account with minimum quote obligation.</p>
+</li>
+<li>
+<p><strong>Broker-Specific Configurations (Section 6)</strong> — Currently empty in spec. Each broker may want custom parameters. Our system supports per-listing parameter overrides.</p>
+</li>
+<li>
+<p><strong>Oracle Data Source</strong> — For market cap tier determination, need a reliable oracle (Chainlink, Pyth, or Orderly's own price feeds). Current implementation uses admin-set values.</p>
+</li>
+<li>
+<p><strong>Cross-Chain Support</strong> — Current implementation is Arbitrum-only. Multi-chain deployment would need cross-chain messaging (LayerZero, CCIP).</p>
+</li>
+</ol>
+<h3>Proposed Next Steps</h3>
+<ol>
+<li><strong>Review:</strong> Orderly engineering team reviews contracts and architecture</li>
+<li><strong>Audit:</strong> Professional smart contract audit (recommend Trail of Bits or OpenZeppelin)</li>
+<li><strong>Testnet Deploy:</strong> Deploy to Arbitrum Sepolia for integration testing</li>
+<li><strong>Backend Integration:</strong> Connect on-chain events to Orderly's matching engine</li>
+<li><strong>Mainnet Launch:</strong> Target March 2026 per Orderly's roadmap</li>
+</ol>
+<h3>Links</h3>
+<ul>
+<li><strong>GitHub:</strong> <a href="https://github.com/arthur-orderly/permissionless-listing">github.com/arthur-orderly/permissionless-listing</a></li>
+<li><strong>Frontend Demo:</strong> <a href="https://orderly-permissionless-listing.vercel.app">orderly-permissionless-listing.vercel.app</a></li>
+<li><strong>Mockup (earlier version):</strong> <a href="https://permissionless-listing-mockup.vercel.app">permissionless-listing-mockup.vercel.app</a></li>
+<li><strong>Arthur DEX:</strong> <a href="https://arthurdex.com">arthurdex.com</a></li>
+</ul></body></html>

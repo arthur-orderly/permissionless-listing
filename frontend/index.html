@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arthur DEX — Permissionless Listing</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Reown AppKit for Wallet Connection -->
+<script type="module">
+import { createAppKit, networks } from 'https://cdn.jsdelivr.net/npm/@reown/appkit-cdn@1.6.8/dist/appkit.js';
+
+try {
+  window._appKit = createAppKit({
+    projectId: '80020d9c176ae2d718fa1c8ff56f03eb',
+    networks: [networks.arbitrum, networks.mainnet],
+    metadata: {
+      name: 'Orderly Permissionless Listing',
+      description: 'List perpetual futures on Orderly Network',
+      url: window.location.origin,
+      icons: []
+    },
+    featuredWalletIds: [
+      'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
+      '1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369', // Rainbow
+      'a797aa35c0fadbfc1a53e7f675162ed5226968b44a19ee3d24385c64d1d3c393', // Phantom
+      '18388be9ac2d02726dbac9777c96efaac06d744b2f6d580fccdd4127a6d01fd1', // Rabby
+    ],
+    allWallets: 'SHOW'
+  });
+  console.log('AppKit initialized');
+} catch(e) {
+  console.error('AppKit init error:', e);
+}
+</script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--bg2:#111118;--bg3:#1a1a24;--bg4:#22222e;--purple:#6219FD;--purple2:#7B3FFF;--purple-glow:rgba(98,25,253,0.15);--teal:#00D1A7;--teal2:#00E8BA;--red:#FF4D6A;--orange:#FF9F43;--yellow:#FFD93D;--text:#EAEAEF;--text2:#9494A8;--text3:#5E5E72;--border:#2A2A38;--glass:rgba(255,255,255,0.03);--glass2:rgba(255,255,255,0.06)}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::selection{background:var(--purple);color:#fff}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+
+/* Layout */
+.app{display:flex;min-height:100vh}
+.sidebar{width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;height:100vh;z-index:100}
+.main{margin-left:240px;flex:1;min-height:100vh;padding:32px;max-width:calc(100vw - 240px)}
+
+/* Logo */
+.logo{padding:24px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--purple),var(--teal));border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:#fff}
+.logo-text{font-size:14px;font-weight:700;line-height:1.2}
+.logo-text span{display:block;font-size:11px;font-weight:400;color:var(--text2);margin-top:2px}
+
+/* Nav */
+.nav{flex:1;padding:16px 12px;display:flex;flex-direction:column;gap:2px}
+.nav-item{padding:10px 12px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;color:var(--text2);transition:all .2s;position:relative}
+.nav-item:hover{background:var(--glass2);color:var(--text)}
+.nav-item.active{background:linear-gradient(135deg,rgba(98,25,253,0.15),rgba(0,209,167,0.08));color:#fff;font-weight:600}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:20px;background:var(--purple);border-radius:0 3px 3px 0}
+.nav-icon{font-size:18px;width:24px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--purple);color:#fff;font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600}
+.nav-divider{height:1px;background:var(--border);margin:8px 12px}
+
+/* Sidebar footer */
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--border)}
+.wallet-btn{width:100%;padding:10px 14px;background:linear-gradient(135deg,var(--purple),var(--purple2));border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s}
+.wallet-btn:hover{box-shadow:0 4px 20px rgba(98,25,253,0.4)}
+.wallet-connected{font-size:12px;color:var(--teal);margin-top:8px;word-break:break-all}
+
+/* Page header */
+.page-header{margin-bottom:28px;display:flex;justify-content:space-between;align-items:flex-start}
+.page-header div h1{font-size:24px;font-weight:700;margin-bottom:4px}
+.page-header div p{color:var(--text2);font-size:13px}
+
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:24px;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent)}
+
+/* Stats grid */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{padding:20px}
+.stat-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:12px}
+.stat-label{font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.stat-value{font-size:26px;font-weight:700;line-height:1.2}
+.stat-change{font-size:11px;margin-top:6px;font-weight:500}
+.stat-change.up{color:var(--teal)}.stat-change.down{color:var(--red)}
+
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge::before{content:'';width:6px;height:6px;border-radius:50%}
+.badge-active{background:rgba(0,209,167,0.12);color:var(--teal)}.badge-active::before{background:var(--teal)}
+.badge-normal{background:rgba(0,209,167,0.12);color:var(--teal)}.badge-normal::before{background:var(--teal)}
+.badge-warning{background:rgba(255,159,67,0.12);color:var(--orange)}.badge-warning::before{background:var(--orange)}
+.badge-limit{background:rgba(255,77,106,0.12);color:var(--red)}.badge-limit::before{background:var(--red)}
+.badge-pending{background:rgba(255,217,61,0.12);color:var(--yellow)}.badge-pending::before{background:var(--yellow)}
+.badge-delisted{background:rgba(94,94,114,0.12);color:var(--text3)}.badge-delisted::before{background:var(--text3)}
+
+/* Tables */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:12px 16px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+td{padding:14px 16px;font-size:13px;border-bottom:1px solid rgba(42,42,56,0.5)}
+tr:hover td{background:var(--glass)}
+.symbol-cell{display:flex;align-items:center;gap:10px;font-weight:600}
+.symbol-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s;font-family:inherit}
+.btn-primary{background:linear-gradient(135deg,var(--purple),var(--purple2));color:#fff;box-shadow:0 4px 20px rgba(98,25,253,0.3)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 25px rgba(98,25,253,0.4)}
+.btn-secondary{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--purple)}
+.btn-sm{padding:6px 14px;font-size:12px;border-radius:8px}
+.btn-danger{background:rgba(255,77,106,0.1);color:var(--red);border:1px solid rgba(255,77,106,0.2)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.btn-outline:hover{border-color:var(--purple);color:var(--text)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+
+/* Account cards */
+.accounts-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.account-card .account-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.account-card .account-name{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.account-balance{font-size:28px;font-weight:700;margin-bottom:16px}
+.account-balance span{font-size:14px;color:var(--text2);font-weight:400}
+.account-meta{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.meta-item{font-size:12px}
+.meta-item .meta-label{color:var(--text3);margin-bottom:3px}
+.meta-item .meta-value{font-weight:600}
+
+/* Wizard */
+.wizard{max-width:720px;margin:0 auto}
+.wizard-steps{display:flex;align-items:center;margin-bottom:40px;position:relative}
+.wizard-steps::before{content:'';position:absolute;top:20px;left:40px;right:40px;height:2px;background:var(--border)}
+.wizard-step{flex:1;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1}
+.step-circle{width:40px;height:40px;border-radius:50%;background:var(--bg3);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;margin-bottom:8px;transition:all .3s}
+.step-circle.active{background:var(--purple);border-color:var(--purple);box-shadow:0 0 20px rgba(98,25,253,0.4)}
+.step-circle.done{background:var(--teal);border-color:var(--teal)}
+.step-label{font-size:11px;color:var(--text3);font-weight:500;text-align:center}
+.step-label.active{color:var(--text)}
+.wizard-content{min-height:400px}
+.wizard-nav{display:flex;justify-content:space-between;margin-top:32px;padding-top:24px;border-top:1px solid var(--border)}
+
+/* Forms */
+.form-group{margin-bottom:20px}
+.form-label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.form-input{width:100%;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;font-family:inherit;transition:all .2s}
+.form-input:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px rgba(98,25,253,0.15)}
+.form-input::placeholder{color:var(--text3)}
+select.form-input{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239494A8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.form-hint{font-size:11px;color:var(--text3);margin-top:6px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* Search result */
+.tooltip-wrap{display:inline-flex;align-items:center;gap:4px}
+.tip-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--bg4);color:var(--text2);font-size:10px;flex-shrink:0;cursor:pointer}
+.tip-icon:hover{background:var(--purple);color:#fff}
+.tip-popup{position:fixed;z-index:9999;background:#22222e;color:#EAEAEF;font-size:12px;font-weight:400;padding:12px 16px;border-radius:10px;border:1px solid var(--border);width:300px;line-height:1.6;box-shadow:0 8px 30px rgba(0,0,0,0.5);pointer-events:auto}
+.search-result{margin-top:16px;padding:16px;background:var(--bg);border-radius:12px;border:1px solid var(--border);transition:border-color 0.2s,background 0.2s}
+.search-result:hover{border-color:var(--accent);background:rgba(98,25,253,0.05)}
+.search-result.selected{border-color:var(--accent);background:rgba(98,25,253,0.1)}
+.token-info{display:flex;align-items:center;gap:12px}
+.token-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.token-name{font-weight:600;font-size:15px}
+.token-meta{font-size:12px;color:var(--text2);margin-top:3px}
+.token-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.ts-item{font-size:12px}
+.ts-label{color:var(--text3);margin-bottom:2px}
+.ts-value{font-weight:600}
+
+/* Preview grid */
+.preview-grid{display:grid;gap:1px;background:var(--border);border-radius:12px;overflow:hidden}
+.preview-row{display:grid;grid-template-columns:1fr 1fr;background:var(--bg2);padding:12px 16px}
+.preview-row:nth-child(odd){background:var(--bg3)}
+.preview-key{font-size:12px;color:var(--text2)}
+.preview-val{font-size:13px;font-weight:600;text-align:right}
+
+/* Risk cards */
+.risk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+.risk-title{font-size:12px;color:var(--text2);font-weight:500;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.risk-value{font-size:22px;font-weight:700;margin-bottom:8px}
+.risk-bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-bottom:6px}
+.risk-bar-fill{height:100%;border-radius:3px;transition:width .5s}
+.risk-label{font-size:11px;color:var(--text3)}
+
+/* Alerts */
+.alert-list{display:flex;flex-direction:column;gap:8px}
+.alert-item{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg);border-radius:10px;border-left:3px solid}
+.alert-item.warn{border-left-color:var(--orange)}.alert-item.info{border-left-color:var(--teal)}.alert-item.error{border-left-color:var(--red)}
+.alert-icon{font-size:16px}
+.alert-text{flex:1;font-size:13px}
+.alert-time{font-size:11px;color:var(--text3);white-space:nowrap}
+
+/* Confirm */
+.confirm-box{background:var(--bg);border-radius:16px;padding:32px;text-align:center}
+.confirm-icon{font-size:48px;margin-bottom:16px}
+.confirm-title{font-size:20px;font-weight:700;margin-bottom:8px}
+.confirm-desc{color:var(--text2);font-size:14px;margin-bottom:24px}
+.checkbox-row{display:flex;align-items:center;gap:10px;font-size:13px;margin-bottom:12px;cursor:pointer}
+.checkbox-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--purple);cursor:pointer}
+
+/* Section */
+.section-title{font-size:16px;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+
+/* Computed box */
+.computed-box{padding:16px;background:rgba(98,25,253,0.08);border-radius:12px;border:1px solid rgba(98,25,253,0.2);margin-top:8px}
+
+/* Tabs */
+.tab-row{display:flex;gap:8px;margin-bottom:20px}
+
+/* Admin panel */
+.proposal-card{padding:20px;margin-bottom:12px;border-left:3px solid var(--purple)}
+.proposal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.proposal-votes{display:flex;gap:4px;margin-top:8px}
+.vote-dot{width:24px;height:24px;border-radius:50%;background:var(--bg);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px}
+.vote-dot.yes{background:var(--teal);border-color:var(--teal);color:#fff}
+
+/* Animations */
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .4s ease}
+
+/* Pages */
+.page{display:none}.page.active{display:block}
+
+/* Responsive */
+@media(max-width:900px){
+  .sidebar{width:64px}.sidebar .logo-text,.sidebar .nav-item span,.sidebar .nav-badge,.sidebar .nav-divider,.sidebar-footer .wallet-connected{display:none}
+  .sidebar .nav-item{justify-content:center;padding:12px}.main{margin-left:64px;padding:20px}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}.accounts-grid{grid-template-columns:1fr}
+  .risk-grid{grid-template-columns:1fr}.form-row{grid-template-columns:1fr}
+  .wallet-btn{font-size:0;padding:10px}.wallet-btn::before{content:'🔗';font-size:18px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <img src="https://arthur-dex-puce.vercel.app/logo.webp" alt="Arthur DEX" style="height:28px">
+      <div style="font-size:10px;font-weight:500;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase">Permissionless Listing</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" data-page="dashboard"><span class="nav-icon">📊</span><span>Dashboard</span></div>
+      <div class="nav-item" data-page="list-token"><span class="nav-icon">➕</span><span>List New Token</span></div>
+      <div class="nav-item" data-page="management"><span class="nav-icon">📋</span><span>My Listings</span><span class="nav-badge">7</span></div>
+      <div class="nav-item" data-page="accounts"><span class="nav-icon">💰</span><span>Accounts</span></div>
+      <div class="nav-divider"></div>
+      <!-- Risk Monitor merged into My Listings -->
+      <div class="nav-item" data-page="admin"><span class="nav-icon">🗳️</span><span>Governance</span></div>
+    </nav>
+    <div class="sidebar-footer">
+      <!-- wallet button moved to top right -->
+      <div class="wallet-connected" id="wallet-addr" style="display:none"></div>
+    </div>
+  </aside>
+
+  <div class="main">
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header fade-in">
+        <div><h1>Dashboard</h1><p>Overview of your permissionless listings and account status</p></div>
+        <appkit-button size="sm"></appkit-button>
+      </div>
+      <div class="stats-grid fade-in">
+        <div class="card stat-card"><div class="stat-icon" style="background:rgba(98,25,253,0.15);color:var(--purple)">📈</div><div class="stat-label"><span class="tooltip-wrap">Listed Symbols<span class="tip-icon" data-tip="Total number of perpetual futures markets you've listed on Orderly Network.">?</span></span></div><div class="stat-value">7</div><div class="stat-change up">↑ 2 this month</div></div>
+        <div class="card stat-card"><div class="stat-icon" style="background:rgba(0,209,167,0.15);color:var(--teal)">💹</div><div class="stat-label"><span class="tooltip-wrap">Total Volume (24h)<span class="tip-icon" data-tip="Combined trading volume across all your listed markets in the last 24 hours.">?</span></span></div><div class="stat-value">$4.2M</div><div class="stat-change up">↑ 18.3%</div></div>
+        <div class="card stat-card"><div class="stat-icon" style="background:rgba(255,217,61,0.15);color:var(--yellow)">💰</div><div class="stat-label"><span class="tooltip-wrap">Total Fee Revenue<span class="tip-icon" data-tip="Total fees earned from your taker and maker fee markups across all listed markets. This accumulates in your Fee Account.">?</span></span></div><div class="stat-value">$12,847</div><div class="stat-change up">↑ $1,240 today</div></div>
+        <div class="card stat-card"><div class="stat-icon" style="background:rgba(255,77,106,0.15);color:var(--red)">⚡</div><div class="stat-label"><span class="tooltip-wrap">Liquidations (24h)<span class="tip-icon" data-tip="Number of trader positions force-closed in the last 24 hours across your listed markets. High liquidations use more of your listing deposits. Your deposits earn yield from liquidation fees, but heavy liquidations may require topping up.">?</span></span></div><div class="stat-value">23</div><div class="stat-change down">↓ 12% vs avg</div></div>
+      </div>
+
+      <div class="section-title">Account Status</div>
+      <div class="stats-grid fade-in" style="grid-template-columns:repeat(2,1fr);margin-bottom:24px">
+        <div class="card" style="padding:20px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span class="tooltip-wrap" style="font-size:13px;font-weight:600">🛡️ Total Listing Deposits<span class="tip-icon" data-tip="Combined deposits across all your listings. Each deposit backs one market — covering the bond (slashable guarantee), insurance, and liquidation execution. Earns yield from liquidation fees.">?</span></span><span class="badge badge-normal">Healthy</span></div>
+          <div style="font-size:22px;font-weight:700;margin-bottom:8px">$475,000 <span style="font-size:12px;color:var(--text2);font-weight:400">USDC across 7 listings</span> <span style="font-size:13px;color:var(--teal);font-weight:600;margin-left:8px">+18.4% APR</span></div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:6px">Min required: $350,000 · Coverage: <span style="color:var(--teal);font-weight:600">136%</span> · Liq profits: <span style="color:var(--teal);font-weight:600">+$7,280/mo</span></div>
+        </div>
+        <div class="card" style="padding:20px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span class="tooltip-wrap" style="font-size:13px;font-weight:600">💰 Fee Revenue<span class="tip-icon" data-tip="Fees earned from your taker and maker fee markups across all listed markets. Withdrawable anytime.">?</span></span><span class="badge badge-normal">Normal</span></div>
+          <div style="font-size:22px;font-weight:700;margin-bottom:8px">$12,847 <span style="font-size:12px;color:var(--text2);font-weight:400">USDC</span></div>
+          <div style="font-size:12px;color:var(--text2)">Today: <span style="color:var(--teal);font-weight:600">+$1,240</span> · This month: $8,420</div>
+        </div>
+      </div>
+
+      <div class="section-title">Recent Events</div>
+      <div class="card fade-in">
+        <div class="alert-list">
+          <div class="alert-item warn"><span class="alert-icon">⚠️</span><span class="alert-text">WIF-PERP deposit liquidation capacity below 50% — consider topping up</span><span class="alert-time">12 min ago</span></div>
+          <div class="alert-item info"><span class="alert-icon">✅</span><span class="alert-text">TRUMP-PERP successfully listed and now actively trading</span><span class="alert-time">2h ago</span></div>
+          <div class="alert-item info"><span class="alert-icon">📈</span><span class="alert-text">DOGE-PERP 24h volume exceeded $500K milestone</span><span class="alert-time">5h ago</span></div>
+          <div class="alert-item warn"><span class="alert-icon">⚠️</span><span class="alert-text">WIF-PERP ±2% depth dropped below $10,000 threshold</span><span class="alert-time">8h ago</span></div>
+          <div class="alert-item error"><span class="alert-icon">🔴</span><span class="alert-text">BONK-PERP funding rate hit cap for 3 consecutive periods</span><span class="alert-time">1d ago</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ LIST NEW TOKEN (Wizard) ═══ -->
+    <div class="page" id="page-list-token">
+      <div class="page-header fade-in"><div><h1>List New Token</h1><p>Launch a new perpetual futures market in 5 simple steps</p></div></div>
+      <div class="wizard fade-in">
+        <div class="wizard-steps">
+          <div class="wizard-step"><div class="step-circle active" id="sc1">1</div><div class="step-label active" id="sl1">Select Token</div></div>
+          <div class="wizard-step"><div class="step-circle" id="sc2">2</div><div class="step-label" id="sl2">Risk Params</div></div>
+          <div class="wizard-step"><div class="step-circle" id="sc3">3</div><div class="step-label" id="sl3">Fees & Revenue</div></div>
+          <div class="wizard-step"><div class="step-circle" id="sc4">4</div><div class="step-label" id="sl4">Market Maker</div></div>
+          <div class="wizard-step"><div class="step-circle" id="sc5">5</div><div class="step-label" id="sl5">Deposit & Confirm</div></div>
+        </div>
+        <div class="wizard-content">
+          <!-- Step 1: Token Selection -->
+          <div class="wizard-page active" id="wiz-1">
+            <div class="card" style="padding:32px">
+              <h3 style="margin-bottom:4px">Search for a token</h3>
+              <p style="color:var(--text2);font-size:13px;margin-bottom:24px">Enter the token contract address or CoinGecko ID</p>
+              <div class="form-group">
+                <label class="form-label">Contract Address or Symbol</label>
+                <input type="text" class="form-input" id="token-search" placeholder="0x... or PEPE, WIF, PENGU...">
+              </div>
+              <div class="search-result" id="search-result" style="display:none;cursor:pointer" onclick="selectToken(this)">
+                <div class="token-info">
+                  <div class="token-icon" style="background:linear-gradient(135deg,#47B64E,#2D8C34)" id="sr-icon">🐸</div>
+                  <div>
+                    <div class="token-name" id="sr-name">PEPE (Pepe)</div>
+                    <div class="token-meta" id="sr-meta">CoinGecko ID: pepe · Rank #24</div>
+                  </div>
+                  <span class="badge badge-active" style="margin-left:auto" id="sr-badge">Eligible</span>
+                </div>
+                <div class="token-stats">
+                  <div class="ts-item"><div class="ts-label">Market Cap</div><div class="ts-value" id="sr-mcap">$4.8B</div></div>
+                  <div class="ts-item"><div class="ts-label">Price Sources</div><div class="ts-value" style="color:var(--teal)" id="sr-sources">5 sources</div></div>
+                  <div class="ts-item"><div class="ts-label">Max Leverage</div><div class="ts-value" id="sr-leverage">Up to 20x</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: Risk Parameters -->
+          <div class="wizard-page" id="wiz-2" style="display:none">
+            <div class="card" style="padding:32px">
+              <h3 style="margin-bottom:4px">Risk Parameters</h3>
+              <p style="color:var(--text2);font-size:13px;margin-bottom:24px">Set leverage and margin parameters (auto-capped by market cap tier)</p>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label"><span class="tooltip-wrap">Max Leverage<span class="tip-icon" data-tip="Maximum leverage traders can use on this market. Auto-capped by market cap: under $30M = 5x, $30-100M = 10x, over $100M = 20x. Higher leverage = more risk, requires more safety fund.">?</span></span></label>
+                  <select class="form-input" id="cfg-leverage" onchange="updateDerived()">
+                    <option value="5">5x (IMR: 20%, MMR: 10%)</option>
+                    <option value="10">10x (IMR: 10%, MMR: 5%)</option>
+                    <option value="20" selected>20x (IMR: 5%, MMR: 2.5%)</option>
+                  </select>
+                  <div class="form-hint">Market cap > $100M allows up to 20x leverage</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label"><span class="tooltip-wrap">Global Max Open Interest<span class="tip-icon" data-tip="Maximum total value of all open positions allowed across all traders for this market. Limits your risk exposure. Higher OI = more potential fees but more safety fund needed.">?</span></span></label>
+                  <input type="text" class="form-input" value="500,000" id="cfg-maxoi" oninput="updateDerived()">
+                  <div class="form-hint">Maximum total open interest for this market</div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label"><span class="tooltip-wrap">User Max Notional<span class="tip-icon" data-tip="Maximum position size a single trader can hold in this market. Prevents one whale from dominating the orderbook.">?</span></span></label>
+                  <input type="text" class="form-input" value="25,000" id="cfg-usermaxn">
+                  <div class="form-hint">Max 5% of Global Max OI ($25,000)</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label"><span class="tooltip-wrap">Min Quote Spread<span class="tip-icon" data-tip="The minimum gap between buy and sell prices the market maker must maintain. Measured in basis points (1 bps = 0.01%). Lower = tighter prices for traders but more risk for the MM. Illiquid tokens need wider spreads.">?</span></span></label>
+                  <input type="text" class="form-input" value="100" id="cfg-spread">
+                  <div class="form-hint" id="spread-hint">Minimum spread in basis points</div>
+                </div>
+              </div>
+              <div class="computed-box">
+                <div style="font-size:13px;font-weight:600;margin-bottom:8px">📐 Derived Parameters</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px" id="derived-params">
+                  <div><span style="color:var(--text2)">IMR:</span> <strong>5%</strong></div>
+                  <div><span style="color:var(--text2)">MMR:</span> <strong>2.5%</strong></div>
+                  <div><span style="color:var(--text2)">Price Range:</span> <strong>3%</strong></div>
+                  <div><span style="color:var(--text2)">Liq Fee:</span> <strong>1.5%</strong></div>
+                  <div><span style="color:var(--text2)">IF Rate:</span> <strong>3.0%</strong></div>
+                  <div><span style="color:var(--text2)">Liq Rate:</span> <strong>1.5%</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: Fee Configuration -->
+          <div class="wizard-page" id="wiz-3" style="display:none">
+            <div class="card" style="padding:32px">
+              <h3 style="margin-bottom:4px">Fee Configuration</h3>
+              <p style="color:var(--text2);font-size:13px;margin-bottom:24px">Set fee markups to earn revenue from trading activity</p>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label"><span class="tooltip-wrap">Taker Fee Markup<span class="tip-icon" data-tip="Extra fee you charge on top of Orderly's base fee for market orders. 0-5 bps (0-0.05%). This is your revenue — goes to your Fee Account.">?</span></span></label>
+                  <select class="form-input" id="cfg-taker-fee" onchange="updateRevenue()">
+                    <option value="0">0 bps (default — no additional fee)</option>
+                    <option value="1">1 bps</option>
+                    <option value="2" selected>2 bps</option>
+                    <option value="3">3 bps</option>
+                    <option value="4">4 bps</option>
+                    <option value="5">5 bps (maximum)</option>
+                  </select>
+                  <div class="form-hint">Additional fee charged on taker trades. Range: 0-5 bps.</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label"><span class="tooltip-wrap">Maker Fee Markup<span class="tip-icon" data-tip="Extra fee you charge on top of Orderly's base fee for limit orders. 0-2 bps (0-0.02%). Keep this low to attract liquidity providers.">?</span></span></label>
+                  <select class="form-input" id="cfg-maker-fee" onchange="updateRevenue()">
+                    <option value="0" selected>0 bps (default — no additional fee)</option>
+                    <option value="1">1 bps</option>
+                    <option value="2">2 bps (maximum)</option>
+                  </select>
+                  <div class="form-hint">Additional fee charged on maker trades. Range: 0-2 bps.</div>
+                </div>
+              </div>
+              <div class="computed-box" style="background:rgba(0,209,167,0.08);border-color:rgba(0,209,167,0.2)">
+                <div style="font-size:13px;font-weight:600;margin-bottom:12px">💰 Revenue Calculator</div>
+                <div style="margin-bottom:16px">
+                  <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:6px">Expected Daily Volume</label>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button class="btn btn-sm btn-outline vol-btn" onclick="setVolume(50000)" style="font-size:11px">$50K</button>
+                    <button class="btn btn-sm btn-outline vol-btn" onclick="setVolume(100000)" style="font-size:11px">$100K</button>
+                    <button class="btn btn-sm btn-outline vol-btn active" onclick="setVolume(500000)" style="font-size:11px">$500K</button>
+                    <button class="btn btn-sm btn-outline vol-btn" onclick="setVolume(1000000)" style="font-size:11px">$1M</button>
+                    <button class="btn btn-sm btn-outline vol-btn" onclick="setVolume(5000000)" style="font-size:11px">$5M</button>
+                    <button class="btn btn-sm btn-outline vol-btn" onclick="setVolume(10000000)" style="font-size:11px">$10M</button>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">
+                  <div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center">
+                    <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Your Daily Revenue</div>
+                    <div style="font-size:20px;font-weight:700;color:var(--teal)" id="rev-daily">$30</div>
+                    <div style="font-size:10px;color:var(--text3)">30% lister share</div>
+                  </div>
+                  <div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center">
+                    <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Monthly Revenue</div>
+                    <div style="font-size:20px;font-weight:700;color:var(--teal)" id="rev-monthly">$900</div>
+                  </div>
+                  <div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center">
+                    <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Annual Revenue</div>
+                    <div style="font-size:20px;font-weight:700;color:var(--teal)" id="rev-annual">$10,950</div>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                  <div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center">
+                    <div style="font-size:11px;color:var(--text3);margin-bottom:4px">ROI on $50K Deposit</div>
+                    <div style="font-size:18px;font-weight:700;color:var(--purple)" id="rev-roi">21.9%</div>
+                    <div style="font-size:10px;color:var(--text3)" id="rev-payback">Payback: 4.6 years</div>
+                  </div>
+                  <div style="padding:12px;background:var(--bg);border-radius:8px;text-align:center">
+                    <div style="font-size:11px;color:var(--text3);margin-bottom:4px">+ Safety Fund APR</div>
+                    <div style="font-size:18px;font-weight:700;color:var(--purple)" id="rev-total-roi">~40%</div>
+                    <div style="font-size:10px;color:var(--text3)">Fees + liq profits combined</div>
+                  </div>
+                </div>
+                <div style="font-size:11px;color:var(--text3);padding:10px 12px;background:var(--bg);border-radius:8px">
+                  <strong style="color:var(--text2)">Revenue split:</strong> 50% Protocol · <span style="color:var(--teal);font-weight:600">30% You</span> · 20% Insurance Fund
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 4: Market Maker Setup -->
+          <div class="wizard-page" id="wiz-4" style="display:none">
+            <div class="card" style="padding:32px">
+              <h3 style="margin-bottom:4px">Market Maker Setup</h3>
+              <p style="color:var(--text2);font-size:13px;margin-bottom:24px">Every listed market needs a designated market maker to provide liquidity. Without one, your orderbook will be empty and no one can trade.</p>
+              
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+                <div class="card" style="padding:20px;cursor:pointer;border:2px solid var(--purple);background:rgba(98,25,253,0.05)" onclick="selectMMOption('self')">
+                  <div style="font-size:24px;margin-bottom:8px">🤖</div>
+                  <div style="font-size:14px;font-weight:600;margin-bottom:4px">Run Your Own MM</div>
+                  <div style="font-size:12px;color:var(--text2);line-height:1.5">Deploy a market-making bot using the Arthur SDK or your own software. Full control over strategy, spreads, and inventory management.</div>
+                  <div style="margin-top:12px;font-size:11px;color:var(--purple);font-weight:600">✓ Recommended for builders</div>
+                </div>
+                <div class="card" style="padding:20px;cursor:pointer;border:2px solid transparent" onclick="selectMMOption('partner')">
+                  <div style="font-size:24px;margin-bottom:8px">🤝</div>
+                  <div style="font-size:14px;font-weight:600;margin-bottom:4px">Partner with an MM Firm</div>
+                  <div style="font-size:12px;color:var(--text2);line-height:1.5">Connect with professional market makers who will quote your market. They provide the capital and expertise — you share a portion of fees.</div>
+                  <div style="margin-top:12px;font-size:11px;color:var(--text3)">Coming soon</div>
+                </div>
+              </div>
+
+              <div id="mm-self-guide">
+                <div style="font-size:13px;font-weight:600;margin-bottom:12px">🛠️ Quick Start Guide</div>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <div style="display:flex;gap:12px;padding:16px;background:var(--bg);border-radius:10px">
+                    <div style="width:32px;height:32px;border-radius:50%;background:rgba(98,25,253,0.15);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--purple);flex-shrink:0">1</div>
+                    <div>
+                      <div style="font-size:13px;font-weight:600;margin-bottom:2px">Install the Arthur SDK</div>
+                      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Python package with everything you need to post quotes</div>
+                      <code style="font-size:12px;background:var(--card);padding:6px 10px;border-radius:6px;display:block;color:var(--teal)">pip install arthur-sdk</code>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:12px;padding:16px;background:var(--bg);border-radius:10px">
+                    <div style="width:32px;height:32px;border-radius:50%;background:rgba(98,25,253,0.15);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--purple);flex-shrink:0">2</div>
+                    <div>
+                      <div style="font-size:13px;font-weight:600;margin-bottom:2px">Create Your Trading Key</div>
+                      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Generate an ed25519 trading key (can trade but never withdraw)</div>
+                      <code style="font-size:12px;background:var(--card);padding:6px 10px;border-radius:6px;display:block;color:var(--teal)">from arthur_sdk import ArthurClient<br>client = ArthurClient(key="ed25519:...", account_id="0x...")</code>
+                    </div>
+                  </div>
+                  <div style="display:flex;gap:12px;padding:16px;background:var(--bg);border-radius:10px">
+                    <div style="width:32px;height:32px;border-radius:50%;background:rgba(98,25,253,0.15);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--purple);flex-shrink:0">3</div>
+                    <div>
+                      <div style="font-size:13px;font-weight:600;margin-bottom:2px">Post Quotes</div>
+                      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Place bid and ask orders around the current price. The SDK handles the Orderly API</div>
+                      <code style="font-size:12px;background:var(--card);padding:6px 10px;border-radius:6px;display:block;color:var(--teal)">client.create_order(symbol="PERP_TOKEN_USDC", side="BUY",<br>&nbsp;&nbsp;price=mid * 0.999, quantity=100, order_type="LIMIT")</code>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="margin-top:16px;padding:16px;background:rgba(0,209,167,0.08);border:1px solid rgba(0,209,167,0.2);border-radius:10px">
+                  <div style="font-size:13px;font-weight:600;margin-bottom:8px">📊 Capital Requirements</div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:12px">
+                    <div><span style="color:var(--text2)">Minimum MM capital:</span><br><strong>$10,000</strong></div>
+                    <div><span style="color:var(--text2)">Recommended:</span><br><strong>$50,000+</strong></div>
+                    <div><span style="color:var(--text2)">Expected APR:</span><br><strong style="color:var(--teal)">20-50%</strong></div>
+                  </div>
+                  <div style="font-size:11px;color:var(--text3);margin-top:8px">More capital = tighter spreads = more volume = more revenue. The MM keeps all spread profits.</div>
+                </div>
+
+                <div style="margin-top:12px;padding:12px;background:var(--bg);border-radius:10px;font-size:12px;color:var(--text2)">
+                  <strong style="color:var(--text)">💡 Don't want to build from scratch?</strong> Use our <a href="https://github.com/arthur-orderly/agent-templates" target="_blank" style="color:var(--purple)">pre-built MM bot templates</a> — just configure your symbol, deposit capital, and run. Templates include grid trading, momentum, and spread-capture strategies.
+                </div>
+              </div>
+
+              <div style="margin-top:20px">
+                <label class="form-label">MM Account Address</label>
+                <input type="text" class="form-input" placeholder="0x... (wallet address that will run the market maker)" id="cfg-mm-address">
+                <div class="form-hint">This address will be registered as the designated market maker for your listing</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 5: Stake & Confirm -->
+          <div class="wizard-page" id="wiz-5" style="display:none">
+            <div class="confirm-box">
+              <div class="confirm-icon">🔒</div>
+              <div class="confirm-title">Deposit & Confirm Listing</div>
+              <div class="confirm-desc">A minimum deposit of <strong>$50,000 USDC</strong> is required to back this listing.<br>Covers your bond, insurance, and liquidation execution — all in one. Earns yield from liquidation fees.</div>
+              
+              <div style="max-width:500px;margin:0 auto 24px;padding:16px;background:rgba(98,25,253,0.08);border:1px solid rgba(98,25,253,0.2);border-radius:12px">
+                <div style="font-size:13px;font-weight:600;margin-bottom:10px">💰 Total Capital Required</div>
+                <div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
+                  <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Listing Deposit (min $50K, locked 6mo)</span><span style="font-weight:600">$50,000</span></div>
+                  <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Market Maker Capital (recommended)</span><span style="font-weight:600">$50,000</span></div>
+                  <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);padding-top:6px;margin-top:4px"><span style="font-weight:700">Estimated Total</span><span style="font-weight:700;color:var(--purple)">~$100,000</span></div>
+                </div>
+                <div style="font-size:11px;color:var(--text3);margin-top:8px">Deposit is locked 6 months. Deposit more to unlock higher max OI. MM capital is separate and yours to manage. Deposit earns ~18% APR from liquidation fees.</div>
+              </div>
+              
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:500px;margin:0 auto 24px;text-align:left">
+                <div class="preview-grid" style="grid-column:span 2">
+                  <div class="preview-row"><span class="preview-key">Symbol</span><span class="preview-val" id="confirm-symbol">PERP_PEPE_USDC</span></div>
+                  <div class="preview-row"><span class="preview-key">Leverage</span><span class="preview-val" id="confirm-leverage">20x</span></div>
+                  <div class="preview-row"><span class="preview-key">IMR / MMR</span><span class="preview-val" id="confirm-margin">5% / 2.5%</span></div>
+                  <div class="preview-row"><span class="preview-key">Taker / Maker Markup</span><span class="preview-val" id="confirm-fees">+2 / +0 bps</span></div>
+                  <div class="preview-row"><span class="preview-key">Deposit</span><span class="preview-val" style="color:var(--purple)">50,000 USDC</span></div>
+                  <div class="preview-row"><span class="preview-key">Lock Period</span><span class="preview-val">6 months</span></div>
+                </div>
+              </div>
+
+              <div style="max-width:500px;margin:0 auto 24px;text-align:left">
+                <div style="padding:12px;background:rgba(255,77,106,0.08);border:1px solid rgba(255,77,106,0.2);border-radius:10px;margin-bottom:16px;font-size:12px">
+                  <strong style="color:var(--red)">⚠️ Slashing Conditions:</strong>
+                  <ul style="margin:8px 0 0 16px;color:var(--text2);line-height:1.8">
+                    <li><strong>100% slash:</strong> Rug pull, platform losses</li>
+                    <li><strong>50% slash:</strong> Listing abandonment (no MM 7+ days)</li>
+                    <li><strong>0-50% slash:</strong> Market manipulation (case-by-case)</li>
+                  </ul>
+                </div>
+                <label class="checkbox-row"><input type="checkbox" id="ack-risk"> I understand the slashing conditions and accept the risks</label>
+                <label class="checkbox-row"><input type="checkbox" id="ack-terms"> I agree to Orderly Network's Broker Terms of Service</label>
+                <label class="checkbox-row"><input type="checkbox" id="ack-if"> I understand my deposit covers bond, insurance, and liquidation for this listing</label>
+              </div>
+
+              <div style="display:flex;gap:12px;justify-content:center">
+                <button class="btn btn-secondary" onclick="approveUSDC()" id="btn-approve">1️⃣ Approve USDC</button>
+                <button class="btn btn-primary" onclick="submitListing()" id="btn-submit" disabled>2️⃣ Deposit & List</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="wizard-nav">
+          <button class="btn btn-secondary" id="wiz-back" onclick="wizNav(-1)" disabled>← Back</button>
+          <button class="btn btn-primary" id="wiz-next" onclick="wizNav(1)" disabled>Select a token first</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SYMBOL MANAGEMENT ═══ -->
+    <div class="page" id="page-management">
+      <div class="page-header fade-in"><div><h1>My Listings</h1><p>Monitor and manage all your listed perpetual futures</p></div><appkit-button size="sm"></appkit-button></div>
+      
+      <!-- Risk Overview -->
+      <div class="risk-grid fade-in" style="margin-bottom:24px">
+        <div class="card" style="padding:20px"><div class="risk-title"><span class="tooltip-wrap">Deposit Coverage<span class="tip-icon" data-tip="How well-funded your listing deposits are vs the minimum required. Each listing needs enough deposit to cover its max OI. Above 100% = healthy buffer. Below 80% = critical.">?</span></span></div><div class="risk-value" style="color:var(--teal)">136%</div><div class="risk-bar"><div class="risk-bar-fill" style="width:68%;background:linear-gradient(90deg,var(--teal),var(--purple))"></div></div><div class="risk-label">Warning at 120% · Critical at 80%</div></div>
+        <div class="card" style="padding:20px"><div class="risk-title"><span class="tooltip-wrap">Liquidation Runway<span class="tip-icon" data-tip="How much of your deposits are still available to handle new liquidations. Low runway means a cascade of liquidations could overwhelm a listing's deposit.">?</span></span></div><div class="risk-value" style="color:var(--orange)">42%</div><div class="risk-bar"><div class="risk-bar-fill" style="width:42%;background:linear-gradient(90deg,var(--red),var(--orange))"></div></div><div class="risk-label">Warning at 50% · Critical at 30%</div></div>
+        <div class="card" style="padding:20px"><div class="risk-title"><span class="tooltip-wrap">Orderbook Quality<span class="tip-icon" data-tip="Measures how much liquidity your market makers are providing. Checks if each market has at least $10K of orders within 2% of the current price. Higher = better trading experience. 100 = all markets well-covered.">?</span></span></div><div class="risk-value" style="color:var(--teal)">87/100</div><div class="risk-bar"><div class="risk-bar-fill" style="width:87%;background:linear-gradient(90deg,var(--purple),var(--teal))"></div></div><div class="risk-label">6/7 markets with healthy liquidity</div></div>
+      </div>
+
+      <!-- Listings Table -->
+      <div class="card fade-in" style="margin-bottom:24px">
+        <div class="tab-row">
+          <button class="btn btn-sm btn-primary" onclick="filterListings('all',this)">All (7)</button>
+          <button class="btn btn-sm btn-secondary" onclick="filterListings('Healthy',this)">Healthy (3)</button>
+          <button class="btn btn-sm btn-secondary" onclick="filterListings('AtRisk',this)">At Risk (3)</button>
+          <button class="btn btn-sm btn-secondary" onclick="filterListings('Pending',this)">Pending (1)</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Symbol</th><th><span class="tooltip-wrap">Health<span class="tip-icon" data-tip="Shows which enforcement level this listing is at. Normal = all good. Alert = notified. Grace = countdown to fix. Reduced = leverage cut. Paused = close-only. See the Enforcement Ladder below for details.">?</span></span></th><th>Leverage</th><th>Volume (24h)</th><th>Fees (24h)</th><th>Orderbook</th><th>OI</th><th><span class="tooltip-wrap">Deposit<span class="tip-icon" data-tip="Your deposit for this listing. Covers everything: bond (slashable guarantee), insurance shortfalls, and liquidation execution. Higher deposit = higher max OI allowed. Earns yield from liquidation fees.">?</span></span></th></tr></thead>
+            <tbody id="listings-table">
+              <tr style="cursor:pointer"><td><div class="symbol-cell"><div class="symbol-icon" style="background:linear-gradient(135deg,#F7931A,#E68A17)">₿</div>BTC-PERP</div></td><td><span style="color:var(--teal)">✅ Healthy</span></td><td>20x</td><td>$1,842,300</td><td>$1,105</td><td>$128,400</td><td>$2.4M</td><td>$120K</td></tr>
+              <tr style="cursor:pointer"><td><div class="symbol-cell"><div class="symbol-icon" style="background:linear-gradient(135deg,#627EEA,#4A67D6)">Ξ</div>ETH-PERP</div></td><td><span style="color:var(--teal)">✅ Healthy</span></td><td>20x</td><td>$1,124,800</td><td>$674</td><td>$85,200</td><td>$1.8M</td><td>$100K</td></tr>
+              <tr style="cursor:pointer"><td><div class="symbol-cell"><div class="symbol-icon" style="background:linear-gradient(135deg,#C2A633,#A68F28)">🐕</div>DOGE-PERP</div></td><td><span style="color:var(--teal)">✅ Healthy</span></td><td>10x</td><td>$542,100</td><td>$325</td><td>$32,500</td><td>$420K</td><td>$75K</td></tr>
+              <tr style="cursor:pointer"><td><div class="symbol-cell"><div class="symbol-icon" style="background:linear-gradient(135deg,#FF6B35,#E55A2B)">🇺🇸</div>TRUMP-PERP</div></td><td><span style="color:var(--yellow)"><span style="font-size:10px;font-weight:700;opacity:0.6">L1</span> 📢 Alert</span></td><td>5x</td><td>$384,200</td><td>$230</td><td>$18,700</td><td>$280K</td><td>$60K</td></tr>
+              <tr style="cursor:pointer;background:rgba(255,165,0,0.05)"><td><div class="symbol-cell"><div class="symbol-icon" style="background:linear-gradient(135deg,#00B4D8,#0096B7)">🐶</div>WIF-PERP</div></td><td><span style="color:var(--orange)"><span style="font-size:10px;font-weight:700;opacity:0.6">L2</span> ⏳ Grace <span style="font-size:11px;color:var(--text3)">18h</span></span></td><td>5x</td><td>$186,400</td><td>$111</td><td style="color:var(--red)">$8,200</td><td>$95K</td><td>$50K</td></tr>
+              <tr style="cursor:pointer;background:rgba(255,77,106,0.05)"><td><div class="symbol-cell"><div class="symbol-icon" style="background:linear-gradient(135deg,#9B59B6,#8E44AD)">🦴</div>BONK-PERP</div></td><td><span style="color:var(--red)"><span style="font-size:10px;font-weight:700;opacity:0.6">L3</span> 📉 Reduced</span></td><td style="color:var(--red)">5x <span style="font-size:10px;color:var(--text3)">(was 10x)</span></td><td>$124,600</td><td>$74</td><td>$14,100</td><td>$68K</td><td>$50K</td></tr>
+              <tr style="cursor:pointer;opacity:0.6"><td><div class="symbol-cell"><div class="symbol-icon" style="background:linear-gradient(135deg,#47B64E,#2D8C34)">🐸</div>PEPE-PERP</div></td><td><span class="badge badge-pending">Pending</span></td><td>20x</td><td>—</td><td>—</td><td>—</td><td>—</td><td>$50K</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Active Alerts -->
+      <div class="section-title">⚠️ Active Alerts</div>
+      <div class="card fade-in" style="margin-bottom:24px">
+        <div class="alert-list">
+          <div class="alert-item error"><span class="alert-icon">🔴</span><span class="alert-text"><strong>BONK-PERP:</strong> Funding rate hit cap for 3 consecutive periods. Leverage auto-reduced 10x → 5x.</span><span class="alert-time">Ongoing</span></div>
+          <div class="alert-item warn"><span class="alert-icon">🟠</span><span class="alert-text"><strong>WIF-PERP:</strong> ±2% depth at $8,200 — below $10K threshold. <span style="color:var(--orange);font-weight:600">Grace period: 18h remaining</span></span><span class="alert-time">6h ago</span></div>
+          <div class="alert-item warn"><span class="alert-icon">🟠</span><span class="alert-text"><strong>Liq Runway:</strong> at 42% — below 50% threshold. Consider topping up your listing deposits.</span><span class="alert-time">12 min ago</span></div>
+        </div>
+      </div>
+
+      <!-- Enforcement Ladder -->
+      <div class="section-title"><span class="tooltip-wrap">Enforcement Ladder<span class="tip-icon" data-tip="Automated escalation when a market's health metrics fall below requirements. Designed to handle operational issues (MM crashes, low capital) without immediately punishing the lister. Slashing is reserved for malicious behavior only.">?</span></span></div>
+      <div class="card fade-in" style="padding:24px">
+        <div style="display:flex;gap:0;position:relative">
+          <div style="position:absolute;top:28px;left:28px;right:28px;height:3px;background:linear-gradient(90deg,var(--teal),var(--yellow),var(--orange),var(--red),#8b0000);border-radius:2px;z-index:0"></div>
+          <div style="flex:1;text-align:center;position:relative;z-index:1">
+            <div style="width:56px;height:56px;border-radius:50%;background:var(--card);border:3px solid var(--teal);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:24px">📢</div>
+            <div style="font-size:13px;font-weight:700;color:var(--teal);margin-bottom:4px">Level 1 — Alert</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.5;max-width:140px;margin:0 auto">Metric drops below threshold<br><strong>Action:</strong> Notification sent</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:6px">Immediate</div>
+          </div>
+          <div style="flex:1;text-align:center;position:relative;z-index:1">
+            <div style="width:56px;height:56px;border-radius:50%;background:var(--card);border:3px solid var(--yellow);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:24px">⏳</div>
+            <div style="font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:4px">Level 2 — Grace Period</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.5;max-width:140px;margin:0 auto">Not fixed within 1 hour<br><strong>Action:</strong> 24h to resolve</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:6px">After 1 hour</div>
+          </div>
+          <div style="flex:1;text-align:center;position:relative;z-index:1">
+            <div style="width:56px;height:56px;border-radius:50%;background:var(--card);border:3px solid var(--orange);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:24px">📉</div>
+            <div style="font-size:13px;font-weight:700;color:var(--orange);margin-bottom:4px">Level 3 — Reduce Risk</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.5;max-width:140px;margin:0 auto">Grace expired<br><strong>Action:</strong> Leverage reduced</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:6px">After 24 hours</div>
+          </div>
+          <div style="flex:1;text-align:center;position:relative;z-index:1">
+            <div style="width:56px;height:56px;border-radius:50%;background:var(--card);border:3px solid var(--red);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:24px">⛔</div>
+            <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:4px">Level 4 — Pause</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.5;max-width:140px;margin:0 auto">No MM 3+ days<br><strong>Action:</strong> Close-only mode</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:6px">After 3 days</div>
+          </div>
+          <div style="flex:1;text-align:center;position:relative;z-index:1">
+            <div style="width:56px;height:56px;border-radius:50%;background:var(--card);border:3px solid #8b0000;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:24px">🗳️</div>
+            <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:4px">Level 5 — Governance</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.5;max-width:140px;margin:0 auto">7+ days or malicious<br><strong>Action:</strong> Slash vote + delist</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:6px">After 7 days</div>
+          </div>
+        </div>
+        <div style="margin-top:20px;padding:14px 16px;background:var(--bg);border-radius:10px;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:10px">
+          <span style="font-size:18px">💡</span>
+          <span>Levels 1–4 are <strong>automated</strong> for operational issues. Level 5 requires <strong>ORDER token holder vote</strong> — reserved for abandonment or malicious behavior.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ACCOUNTS ═══ -->
+    <div class="page" id="page-accounts">
+      <div class="page-header fade-in"><div><h1>Accounts</h1><p>Manage your listing deposits, fee revenue, and market maker accounts</p></div><appkit-button size="sm"></appkit-button></div>
+      
+      <!-- Per-Listing Deposits -->
+      <div class="section-title"><span class="tooltip-wrap">🛡️ Listing Deposits<span class="tip-icon" data-tip="Each listing has one deposit that covers everything: slashable bond, insurance shortfalls, and liquidation execution. Higher deposit = higher max OI. Earns yield from liquidation fees.">?</span></span></div>
+      <div class="card fade-in" style="margin-bottom:24px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px 16px;cursor:pointer" onclick="toggleDepositList()">
+          <div><span style="font-size:20px;font-weight:700">$475,000</span> <span style="font-size:12px;color:var(--text2)">total deposited</span> <span style="font-size:13px;color:var(--teal);font-weight:600;margin-left:8px">+18.4% APR</span></div>
+          <div style="display:flex;align-items:center;gap:12px"><span style="font-size:12px;color:var(--text2)">Min: $350K · Coverage: <span style="color:var(--teal);font-weight:600">136%</span> · Yield: <span style="color:var(--teal);font-weight:600">+$7,280/mo</span></span><span style="font-size:16px;color:var(--text3);transition:transform .2s" id="deposit-arrow">▸</span></div>
+        </div>
+        <div style="display:none;flex-direction:column;gap:10px;border-top:1px solid var(--border);padding-top:16px" id="deposit-list">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:8px;font-size:13px">
+            <span style="font-weight:600">₿ BTC-PERP</span>
+            <span style="display:flex;gap:20px;align-items:center"><span style="color:var(--text2);font-size:12px">Min: $80K</span><span style="color:var(--teal);font-size:12px">+$2,100/mo</span><span style="font-weight:600">$120,000</span><button class="btn btn-sm btn-outline" style="margin-left:8px" onclick="openManageModal('BTC-PERP',120000,80000,2100)">Manage</button></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:8px;font-size:13px">
+            <span style="font-weight:600">Ξ ETH-PERP</span>
+            <span style="display:flex;gap:20px;align-items:center"><span style="color:var(--text2);font-size:12px">Min: $65K</span><span style="color:var(--teal);font-size:12px">+$1,680/mo</span><span style="font-weight:600">$100,000</span><button class="btn btn-sm btn-outline" style="margin-left:8px" onclick="openManageModal('ETH-PERP',100000,65000,1680)">Manage</button></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:8px;font-size:13px">
+            <span style="font-weight:600">🐕 DOGE-PERP</span>
+            <span style="display:flex;gap:20px;align-items:center"><span style="color:var(--text2);font-size:12px">Min: $45K</span><span style="color:var(--teal);font-size:12px">+$1,240/mo</span><span style="font-weight:600">$75,000</span><button class="btn btn-sm btn-outline" style="margin-left:8px" onclick="openManageModal('DOGE-PERP',75000,45000,1240)">Manage</button></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:8px;font-size:13px">
+            <span style="font-weight:600">🇺🇸 TRUMP-PERP</span>
+            <span style="display:flex;gap:20px;align-items:center"><span style="color:var(--text2);font-size:12px">Min: $40K</span><span style="color:var(--teal);font-size:12px">+$920/mo</span><span style="font-weight:600">$60,000</span><button class="btn btn-sm btn-outline" style="margin-left:8px" onclick="openManageModal('TRUMP-PERP',60000,40000,920)">Manage</button></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:rgba(255,165,0,0.05);border:1px solid rgba(255,165,0,0.15);border-radius:8px;font-size:13px">
+            <span style="font-weight:600">🐶 WIF-PERP <span style="color:var(--orange);font-size:11px">⏳ Grace period</span></span>
+            <span style="display:flex;gap:20px;align-items:center"><span style="color:var(--orange);font-size:12px">Min: $50K ⚠️</span><span style="color:var(--teal);font-size:12px">+$640/mo</span><span style="font-weight:600">$50,000</span><button class="btn btn-sm btn-primary" style="margin-left:8px" onclick="openManageModal('WIF-PERP',50000,50000,640)">Top Up</button></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:8px;font-size:13px">
+            <span style="font-weight:600">🦴 BONK-PERP</span>
+            <span style="display:flex;gap:20px;align-items:center"><span style="color:var(--text2);font-size:12px">Min: $35K</span><span style="color:var(--teal);font-size:12px">+$480/mo</span><span style="font-weight:600">$50,000</span><button class="btn btn-sm btn-outline" style="margin-left:8px" onclick="openManageModal('BONK-PERP',50000,35000,480)">Manage</button></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--bg);border-radius:8px;font-size:13px;opacity:0.6">
+            <span style="font-weight:600">🐸 PEPE-PERP <span style="font-size:11px;color:var(--text3)">Pending</span></span>
+            <span style="display:flex;gap:20px;align-items:center"><span style="color:var(--text2);font-size:12px">Min: $50K</span><span style="color:var(--text3);font-size:12px">—</span><span style="font-weight:600">$50,000</span></span>
+          </div>
+        </div>
+        <div style="margin-top:12px;padding:10px 12px;font-size:11px;color:var(--text3);background:var(--bg);border-radius:8px">
+          💡 Deposit more to increase max OI for a listing. Minimum lock: 6 months for new deposits. Withdraw with 7-day notice if above minimum.
+        </div>
+      </div>
+
+      <!-- Fee Revenue -->
+      <div class="section-title">💰 Fee Revenue</div>
+      <div class="accounts-grid fade-in" style="grid-template-columns:1fr;margin-bottom:24px">
+        <div class="card account-card">
+          <div class="account-header"><div class="account-name">Fee Revenue</div><span class="badge badge-normal">Normal</span></div>
+          <div class="account-balance">$12,847 <span>USDC</span></div>
+          <div class="account-meta">
+            <div class="meta-item"><div class="meta-label">Today</div><div class="meta-value" style="color:var(--teal)">+$1,240</div></div>
+            <div class="meta-item"><div class="meta-label">This Month</div><div class="meta-value">$8,420</div></div>
+            <div class="meta-item"><div class="meta-label">All-time</div><div class="meta-value">$47,832</div></div>
+            <div class="meta-item"><div class="meta-label">Withdrawable</div><div class="meta-value">$12,847</div></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px"><button class="btn btn-sm btn-primary" onclick="openFeeModal()">Withdraw</button><button class="btn btn-sm btn-outline" onclick="showToast('📊 Fee breakdown: BTC $1,105 · ETH $674 · DOGE $325 · TRUMP $230 · WIF $111 · BONK $74 (24h)')">Fee Breakdown</button></div>
+        </div>
+      </div>
+
+      <!-- MM Accounts -->
+      <div class="section-title">🤖 Market Maker Accounts</div>
+      <div class="accounts-grid fade-in" style="grid-template-columns:1fr">
+        <div class="card account-card">
+          <div class="account-header"><div class="account-name tooltip-wrap">MM Accounts<span class="tip-icon" data-tip="Designated market maker accounts that provide liquidity for your listed tokens. MMs earn from the bid-ask spread. Separate from your listing deposits — this is MM operating capital.">?</span></div><span class="badge badge-normal">3 Active</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding-bottom:4px" onclick="toggleMMList()">
+            <div><span style="font-size:20px;font-weight:700">$520,000</span> <span style="font-size:12px;color:var(--text2)">USDC (Total)</span> <span style="font-size:13px;color:var(--teal);font-weight:600;margin-left:8px">+32.6% APR</span></div>
+            <div style="display:flex;align-items:center;gap:12px"><span style="font-size:12px;color:var(--text2)">PnL: <span style="color:var(--teal);font-weight:600">+$14,120</span> · Volume: $8.4M · Uptime: <span style="color:var(--teal);font-weight:600">99.2%</span></span><span style="font-size:16px;color:var(--text3);transition:transform .2s" id="mm-arrow">▸</span></div>
+          </div>
+          <div style="display:none;flex-direction:column;gap:10px;margin-top:12px;border-top:1px solid var(--border);padding-top:12px" id="mm-list">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg);border-radius:8px;font-size:13px"><span>MM-Alpha <span style="color:var(--text3);font-size:11px">(BTC, ETH, DOGE)</span></span><span style="display:flex;gap:12px;align-items:center"><span style="color:var(--teal);font-size:12px">+$8,940</span><span style="font-weight:600">$280,000</span></span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg);border-radius:8px;font-size:13px"><span>MM-Beta <span style="color:var(--text3);font-size:11px">(TRUMP, WIF)</span></span><span style="display:flex;gap:12px;align-items:center"><span style="color:var(--teal);font-size:12px">+$4,230</span><span style="font-weight:600">$160,000</span></span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg);border-radius:8px;font-size:13px"><span>MM-Gamma <span style="color:var(--text3);font-size:11px">(BONK)</span></span><span style="display:flex;gap:12px;align-items:center"><span style="color:var(--teal);font-size:12px">+$950</span><span style="font-weight:600">$80,000</span></span></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px"><button class="btn btn-sm btn-primary" onclick="showToast('🤖 Connect your MM wallet address to register a new market maker account.')">Add MM Account</button><button class="btn btn-sm btn-outline" onclick="showToast('📋 MM-Alpha: BTC/ETH/DOGE · MM-Beta: TRUMP/WIF · MM-Gamma: BONK — all healthy, 99.2% avg uptime')">View All</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Risk Monitor merged into My Listings above -->
+
+    <!-- ═══ ADMIN PANEL ═══ -->
+    <div class="page" id="page-admin">
+      <div class="page-header fade-in"><div><h1>Governance</h1><p>Slashing proposals voted on-chain by ORDER token holders via Snapshot</p></div><appkit-button size="sm"></appkit-button></div>
+      
+      <div class="card fade-in" style="padding:24px;margin-bottom:24px;display:flex;align-items:center;gap:16px;background:linear-gradient(135deg,rgba(98,25,253,0.08),rgba(0,209,167,0.05));border:1px solid rgba(98,25,253,0.2)">
+        <div style="font-size:36px">🗳️</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:600;margin-bottom:4px">On-Chain Governance via Snapshot</div>
+          <div style="font-size:13px;color:var(--text2)">Slashing proposals are voted on by ORDER token holders. Voting power is proportional to your ORDER holdings. All proposals and votes are transparent and verifiable.</div>
+        </div>
+        <a href="https://snapshot.box/#/s:orderlygov.eth" target="_blank" class="btn btn-primary" style="text-decoration:none;white-space:nowrap">Open Snapshot ↗</a>
+      </div>
+
+      <div class="section-title">Active Proposals</div>
+      <div class="card proposal-card fade-in" style="border-left-color:var(--orange)">
+        <div class="proposal-header">
+          <div>
+            <div style="font-size:15px;font-weight:600">SIP-12 — BONK-PERP Wash Trading Slash</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:4px">Created by 0x7a3f...e2c1 · 12 hours ago · <a href="https://snapshot.box/#/s:orderlygov.eth" target="_blank" style="color:var(--purple)">View on Snapshot ↗</a></div>
+          </div>
+          <span class="badge badge-pending">Voting</span>
+        </div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Evidence of wash trading detected: 47% of 24h volume from related wallets. Proposed 30% slash of $50,000 deposit.</div>
+        <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+          <div style="font-size:12px"><strong>Slash:</strong> <span style="color:var(--orange)">30% ($15,000)</span></div>
+          <div style="font-size:12px"><strong>Quorum:</strong> 500K ORDER</div>
+          <div style="flex:1;max-width:200px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span style="color:var(--teal)">For: 320K</span><span style="color:var(--red)">Against: 85K</span></div>
+            <div style="height:6px;background:var(--bg);border-radius:3px;overflow:hidden;display:flex"><div style="width:79%;background:var(--teal);border-radius:3px"></div><div style="width:21%;background:var(--red)"></div></div>
+          </div>
+          <div style="font-size:11px;color:var(--text3)">Ends in 36h · Timelock: 48h after</div>
+          <a href="https://snapshot.box/#/s:orderlygov.eth" target="_blank" class="btn btn-sm btn-primary" style="margin-left:auto;text-decoration:none">Vote on Snapshot ↗</a>
+        </div>
+      </div>
+
+      <div class="card proposal-card fade-in" style="border-left-color:var(--teal);margin-bottom:24px">
+        <div class="proposal-header">
+          <div>
+            <div style="font-size:15px;font-weight:600">SIP-11 — WIF-PERP Listing Abandonment</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:4px">Created by 0x8b2d...f4a9 · 3 days ago · <a href="https://snapshot.box/#/s:orderlygov.eth" target="_blank" style="color:var(--purple)">View on Snapshot ↗</a></div>
+          </div>
+          <span class="badge badge-active">Passed — Ready to Execute</span>
+        </div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:12px">No market maker activity for 9 consecutive days. 50% slash of listing deposit approved by ORDER holders.</div>
+        <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap">
+          <div style="font-size:12px"><strong>Slash:</strong> <span style="color:var(--red)">50% ($25,000)</span></div>
+          <div style="font-size:12px"><strong>Result:</strong> <span style="color:var(--teal)">78% For</span> · 890K ORDER voted</div>
+          <div style="font-size:11px;color:var(--teal)">Timelock expired ✓</div>
+          <button class="btn btn-sm btn-primary" style="margin-left:auto">⚡ Execute Slash On-Chain</button>
+        </div>
+      </div>
+
+      <div class="section-title"><span class="tooltip-wrap">How Slashing Works<span class="tip-icon" data-tip="Anyone can propose a slash on Snapshot. ORDER token holders vote. If quorum is met and majority votes For, there's a 48-hour timelock before execution. Then anyone can trigger the on-chain slash.">?</span></span></div>
+      <div class="stats-grid fade-in" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+        <div class="card" style="padding:16px;text-align:center">
+          <div style="font-size:28px;margin-bottom:8px">📝</div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">1. Propose</div>
+          <div style="font-size:11px;color:var(--text2)">Anyone submits a slash proposal on Snapshot with evidence</div>
+        </div>
+        <div class="card" style="padding:16px;text-align:center">
+          <div style="font-size:28px;margin-bottom:8px">🗳️</div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">2. Vote</div>
+          <div style="font-size:11px;color:var(--text2)">ORDER holders vote. Voting power = token balance. Quorum: 500K ORDER</div>
+        </div>
+        <div class="card" style="padding:16px;text-align:center">
+          <div style="font-size:28px;margin-bottom:8px">⏳</div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">3. Timelock</div>
+          <div style="font-size:11px;color:var(--text2)">48-hour cooldown after vote passes. Lister can appeal or exit</div>
+        </div>
+        <div class="card" style="padding:16px;text-align:center">
+          <div style="font-size:28px;margin-bottom:8px">⚡</div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">4. Execute</div>
+          <div style="font-size:11px;color:var(--text2)">Anyone triggers on-chain slash. Funds go to insurance pool</div>
+        </div>
+      </div>
+
+      <div class="card fade-in" style="padding:20px;text-align:center">
+        <div style="font-size:14px;color:var(--text2);margin-bottom:12px">Want to create a new slashing proposal?</div>
+        <a href="https://snapshot.box/#/s:orderlygov.eth" target="_blank" class="btn btn-primary" style="text-decoration:none">Create Proposal on Snapshot ↗</a>
+      </div>
+    </div>
+
+    <div style="text-align:right;padding:24px 0 12px;font-size:11px;color:var(--text3)">Powered by <a href="https://orderly.network" target="_blank" style="color:var(--purple);text-decoration:none;font-weight:600">Orderly Network</a></div>
+  </div>
+</div>
+
+<!-- Success Modal -->
+<div id="success-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);z-index:1000;align-items:center;justify-content:center">
+  <div class="card" style="max-width:480px;text-align:center;padding:48px;animation:fadeIn .4s ease">
+    <div style="font-size:64px;margin-bottom:16px">🎉</div>
+    <h2 style="margin-bottom:8px">Listing Submitted!</h2>
+    <p style="color:var(--text2);margin-bottom:24px">Your listing has been staked and submitted.<br>Status: <span style="color:var(--yellow);font-weight:600">PENDING</span></p>
+    <div style="background:var(--bg);border-radius:12px;padding:16px;margin-bottom:24px;font-size:13px;text-align:left">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--text2)">Listing ID</span><span style="font-weight:600;font-family:monospace">#PL-2026-001</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--text2)">Deposit</span><span style="font-weight:600">50,000 USDC</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Lock Until</span><span style="font-weight:600">Aug 2026</span></div>
+    </div>
+    <button class="btn btn-primary" onclick="closeModal();showPage('management')">View in My Listings →</button>
+  </div>
+</div>
+
+<!-- Manage Deposit Modal -->
+<div id="manage-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)closeManageModal()">
+  <div class="card" style="max-width:480px;padding:32px;animation:fadeIn .3s ease">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 style="margin:0" id="manage-title">Manage Deposit</h3>
+      <button onclick="closeManageModal()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <button class="btn btn-sm btn-primary" id="manage-tab-deposit" onclick="switchManageTab('deposit')">Deposit More</button>
+      <button class="btn btn-sm btn-secondary" id="manage-tab-withdraw" onclick="switchManageTab('withdraw')">Withdraw</button>
+    </div>
+    <!-- Deposit tab -->
+    <div id="manage-deposit-tab">
+      <div style="padding:14px;background:var(--bg);border-radius:10px;margin-bottom:16px;font-size:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text2)">Current Deposit</span><span style="font-weight:600" id="manage-current">$120,000</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text2)">Minimum Required</span><span id="manage-min">$80,000</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Monthly Yield</span><span style="color:var(--teal)" id="manage-yield">+$2,100</span></div>
+      </div>
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">Amount to Deposit (USDC)</label>
+      <input type="text" class="form-input" placeholder="10,000" id="manage-amount" oninput="updateManagePreview()">
+      <div style="display:flex;gap:8px;margin:8px 0 16px">
+        <button class="btn btn-sm btn-outline" onclick="document.getElementById('manage-amount').value='10000';updateManagePreview()">$10K</button>
+        <button class="btn btn-sm btn-outline" onclick="document.getElementById('manage-amount').value='25000';updateManagePreview()">$25K</button>
+        <button class="btn btn-sm btn-outline" onclick="document.getElementById('manage-amount').value='50000';updateManagePreview()">$50K</button>
+      </div>
+      <div style="padding:12px;background:rgba(0,209,167,0.08);border:1px solid rgba(0,209,167,0.2);border-radius:10px;margin-bottom:16px;font-size:12px" id="manage-preview">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--text2)">New Total</span><span style="font-weight:600" id="manage-new-total">—</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Estimated New Yield</span><span style="color:var(--teal)" id="manage-new-yield">—</span></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:16px">🔒 New deposits are locked for 6 months. Yield starts accruing immediately.</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary" style="flex:1" onclick="simulateApprove(this)">1️⃣ Approve USDC</button>
+        <button class="btn btn-primary" style="flex:1" id="manage-deposit-btn" disabled onclick="simulateDeposit()">2️⃣ Deposit</button>
+      </div>
+    </div>
+    <!-- Withdraw tab -->
+    <div id="manage-withdraw-tab" style="display:none">
+      <div style="padding:14px;background:var(--bg);border-radius:10px;margin-bottom:16px;font-size:12px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text2)">Current Deposit</span><span style="font-weight:600" id="manage-w-current">$120,000</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text2)">Minimum Required</span><span id="manage-w-min">$80,000</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">Available to Withdraw</span><span style="color:var(--teal);font-weight:600" id="manage-w-avail">$40,000</span></div>
+      </div>
+      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">Amount to Withdraw (USDC)</label>
+      <input type="text" class="form-input" placeholder="10,000" id="manage-w-amount">
+      <div style="padding:12px;background:rgba(255,217,61,0.08);border:1px solid rgba(255,217,61,0.2);border-radius:10px;margin:16px 0;font-size:12px">
+        <strong style="color:var(--yellow)">⏳ 7-Day Notice Period</strong>
+        <div style="color:var(--text2);margin-top:4px">Withdrawals above minimum require a 7-day cooldown. Your deposit continues earning yield during this period. After 7 days, funds can be claimed.</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="simulateWithdraw()">Request Withdrawal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fee Withdraw Modal -->
+<div id="fee-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);z-index:1000;align-items:center;justify-content:center" onclick="if(event.target===this)closeFeeModal()">
+  <div class="card" style="max-width:420px;padding:32px;animation:fadeIn .3s ease">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 style="margin:0">Withdraw Fee Revenue</h3>
+      <button onclick="closeFeeModal()" style="background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div style="padding:14px;background:var(--bg);border-radius:10px;margin-bottom:16px;font-size:12px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:var(--text2)">Available Balance</span><span style="font-weight:600;color:var(--teal)">$12,847 USDC</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--text2)">All-time Earned</span><span>$47,832</span></div>
+    </div>
+    <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">Amount (USDC)</label>
+    <input type="text" class="form-input" value="12847" id="fee-amount">
+    <div style="display:flex;gap:8px;margin:8px 0 16px">
+      <button class="btn btn-sm btn-outline" onclick="document.getElementById('fee-amount').value='5000'">$5K</button>
+      <button class="btn btn-sm btn-outline" onclick="document.getElementById('fee-amount').value='12847'">Max</button>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:16px">✅ Fee revenue has no lock period — withdraw anytime to your connected wallet.</div>
+    <button class="btn btn-primary" style="width:100%" onclick="simulateFeeWithdraw()">Withdraw to Wallet</button>
+  </div>
+</div>
+
+<script>
+// ─── Tooltips (hover to show) ───
+document.addEventListener('mouseover', function(e) {
+  const icon = e.target.closest('.tip-icon');
+  if (!icon || document.querySelector('.tip-popup')) return;
+  
+  const tipText = icon.getAttribute('data-tip');
+  if (!tipText) return;
+  
+  const rect = icon.getBoundingClientRect();
+  const popup = document.createElement('div');
+  popup.className = 'tip-popup';
+  popup.textContent = tipText;
+  popup.style.left = Math.min(rect.left, window.innerWidth - 320) + 'px';
+  popup.style.top = (rect.bottom + 8) + 'px';
+  document.body.appendChild(popup);
+  
+  const remove = () => { popup.remove(); icon.removeEventListener('mouseleave', remove); popup.removeEventListener('mouseleave', remove); };
+  icon.addEventListener('mouseleave', function(ev) {
+    setTimeout(() => { if (!popup.matches(':hover')) remove(); }, 100);
+  });
+  popup.addEventListener('mouseleave', remove);
+});
+
+// ─── Listing Filters ───
+function filterListings(status, btn) {
+  btn.parentElement.querySelectorAll('.btn').forEach(b => b.className = 'btn btn-sm btn-secondary');
+  btn.className = 'btn btn-sm btn-primary';
+  const rows = document.querySelectorAll('#listings-table tr');
+  rows.forEach(row => {
+    if (status === 'all') { row.style.display = ''; return; }
+    const text = row.textContent;
+    let show = false;
+    if (status === 'Healthy') show = text.includes('Healthy');
+    else if (status === 'AtRisk') show = text.includes('Alert') || text.includes('Grace') || text.includes('Reduced') || text.includes('Paused');
+    else if (status === 'Pending') show = text.includes('Pending');
+    row.style.display = show ? '' : 'none';
+  });
+}
+
+// ─── Navigation ───
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelector('[data-page="' + id + '"]')?.classList.add('active');
+}
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => showPage(item.dataset.page));
+});
+
+// ─── Wallet Connection ───
+async function connectWallet() {
+  try {
+    if (window._appKit) {
+      await window._appKit.open();
+    } else {
+      alert('Wallet SDK loading... please try again in a moment.');
+    }
+  } catch (e) {
+    console.error('Wallet connection error:', e);
+  }
+}
+
+// ─── Wizard Navigation ───
+let wizStep = 1;
+function wizNav(dir) {
+  const pages = document.querySelectorAll('.wizard-page');
+  pages[wizStep - 1].style.display = 'none';
+  wizStep += dir;
+  pages[wizStep - 1].style.display = 'block';
+  for (let i = 1; i <= 5; i++) {
+    const c = document.getElementById('sc' + i);
+    const l = document.getElementById('sl' + i);
+    c.className = 'step-circle' + (i < wizStep ? ' done' : i === wizStep ? ' active' : '');
+    l.className = 'step-label' + (i === wizStep ? ' active' : '');
+    if (i < wizStep) c.textContent = '✓'; else c.textContent = i;
+  }
+  document.getElementById('wiz-back').disabled = wizStep === 1;
+  const nb = document.getElementById('wiz-next');
+  nb.style.display = wizStep === 5 ? 'none' : '';
+  if (wizStep === 1 && !selectedToken) {
+    nb.disabled = true;
+    nb.textContent = 'Select a token first';
+  } else {
+    nb.disabled = false;
+    nb.textContent = 'Next →';
+  }
+}
+
+// ─── Token Search (simulated) ───
+const MOCK_TOKENS = {
+  'PEPE': { name: 'Pepe', icon: '🐸', color: '#47B64E,#2D8C34', rank: 24, mcap: '$4.8B', sources: 5, maxLev: 20 },
+  'WIF': { name: 'dogwifhat', icon: '🐶', color: '#00B4D8,#0096B7', rank: 82, mcap: '$680M', sources: 4, maxLev: 20 },
+  'TRUMP': { name: 'TRUMP', icon: '🇺🇸', color: '#FF6B35,#E55A2B', rank: 45, mcap: '$2.1B', sources: 3, maxLev: 20 },
+  'BONK': { name: 'Bonk', icon: '🦴', color: '#9B59B6,#8E44AD', rank: 67, mcap: '$950M', sources: 4, maxLev: 20 },
+  'PENGU': { name: 'Pudgy Penguins', icon: '🐧', color: '#4A90D9,#357ABD', rank: 110, mcap: '$420M', sources: 3, maxLev: 20 },
+  'DOGE': { name: 'Dogecoin', icon: '🐕', color: '#C2A633,#A68F28', rank: 8, mcap: '$28B', sources: 5, maxLev: 20 },
+};
+
+let selectedToken = null;
+function selectToken(el) {
+  el.classList.toggle('selected');
+  if (el.classList.contains('selected')) {
+    const mcapText = document.getElementById('sr-mcap').textContent;
+    const levText = document.getElementById('sr-leverage').textContent;
+    const maxLev = parseInt(levText.match(/\d+/)?.[0] || '5');
+    
+    // Parse market cap for recommendations
+    let mcapNum = 0;
+    if (mcapText.includes('B')) mcapNum = parseFloat(mcapText.replace(/[^0-9.]/g,'')) * 1e9;
+    else if (mcapText.includes('M')) mcapNum = parseFloat(mcapText.replace(/[^0-9.]/g,'')) * 1e6;
+    
+    // Recommended defaults based on market cap tier
+    let recSpread, recOI, recUserMax, recLev, tierName;
+    if (mcapNum > 1e9) {
+      recSpread = 10; recOI = '50,000,000'; recUserMax = '2,500,000'; recLev = 20; tierName = 'Large cap (>$1B)';
+    } else if (mcapNum > 100e6) {
+      recSpread = 30; recOI = '10,000,000'; recUserMax = '500,000'; recLev = 20; tierName = 'Mid cap ($100M-$1B)';
+    } else if (mcapNum > 30e6) {
+      recSpread = 80; recOI = '2,000,000'; recUserMax = '100,000'; recLev = 10; tierName = 'Small cap ($30-100M)';
+    } else {
+      recSpread = 150; recOI = '500,000'; recUserMax = '25,000'; recLev = 5; tierName = 'Micro cap (<$30M)';
+    }
+    
+    selectedToken = {
+      name: document.getElementById('sr-name').textContent,
+      mcap: mcapText,
+      leverage: levText,
+      recSpread, recOI, recUserMax, recLev, tierName
+    };
+    
+    const btn = document.getElementById('wiz-next');
+    btn.disabled = false;
+    btn.textContent = 'Next →';
+    
+    // Auto-fill recommended values
+    const levSelect = document.getElementById('cfg-leverage');
+    if (levSelect) {
+      // Enable/disable options based on max leverage
+      levSelect.querySelectorAll('option').forEach(opt => {
+        opt.disabled = parseInt(opt.value) > maxLev;
+      });
+      levSelect.value = recLev;
+    }
+    document.getElementById('cfg-spread').value = recSpread;
+    document.getElementById('spread-hint').innerHTML = 'Recommended: <strong style="color:var(--teal)">' + recSpread + ' bps</strong> for ' + tierName;
+    document.getElementById('cfg-maxoi').value = recOI;
+    document.getElementById('cfg-usermaxn').value = recUserMax;
+    if (typeof updateDerived === 'function') updateDerived();
+  } else {
+    selectedToken = null;
+    const btn = document.getElementById('wiz-next');
+    btn.disabled = true;
+    btn.textContent = 'Select a token first';
+  }
+}
+
+let searchTimeout;
+document.getElementById('token-search').addEventListener('input', function(e) {
+  const val = e.target.value.trim();
+  const result = document.getElementById('search-result');
+  if (val.length < 2) { result.style.display = 'none'; return; }
+  
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(async () => {
+    // Try CoinGecko search API
+    try {
+      result.style.display = 'block';
+      document.getElementById('sr-name').textContent = 'Searching...';
+      document.getElementById('sr-meta').textContent = '';
+      document.getElementById('sr-mcap').textContent = '';
+      document.getElementById('sr-sources').textContent = '';
+      document.getElementById('sr-leverage').textContent = '';
+      
+      const resp = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(val)}`);
+      const data = await resp.json();
+      
+      if (data.coins && data.coins.length > 0) {
+        const coin = data.coins[0];
+        // Fetch market data for market cap
+        let mcap = 'Fetching...';
+        let maxLev = 5;
+        try {
+          const mResp = await fetch(`https://api.coingecko.com/api/v3/coins/${coin.id}?localization=false&tickers=false&community_data=false&developer_data=false`);
+          const mData = await mResp.json();
+          const mc = mData.market_data?.market_cap?.usd || 0;
+          if (mc > 1e9) { mcap = `$${(mc/1e9).toFixed(1)}B`; maxLev = 20; }
+          else if (mc > 1e6) { mcap = `$${(mc/1e6).toFixed(0)}M`; maxLev = mc > 100e6 ? 20 : mc > 30e6 ? 10 : 5; }
+          else { mcap = `$${mc.toLocaleString()}`; maxLev = 5; }
+        } catch(e) {}
+        
+        const icon = document.getElementById('sr-icon');
+        if (coin.thumb) {
+          icon.style.background = `url(${coin.thumb}) center/cover`;
+          icon.textContent = '';
+        } else {
+          icon.style.background = 'linear-gradient(135deg,#6219FD,#4A10D0)';
+          icon.textContent = coin.symbol?.charAt(0) || '?';
+        }
+        document.getElementById('sr-name').textContent = `${coin.symbol?.toUpperCase()} (${coin.name})`;
+        document.getElementById('sr-meta').textContent = `CoinGecko ID: ${coin.id} · Rank #${coin.market_cap_rank || 'N/A'}`;
+        document.getElementById('sr-mcap').textContent = mcap;
+        document.getElementById('sr-sources').textContent = `CoinGecko verified`;
+        document.getElementById('sr-leverage').textContent = `Up to ${maxLev}x`;
+      } else if (val.startsWith('0x') && val.length > 10) {
+        document.getElementById('sr-name').textContent = 'Unknown Token';
+        document.getElementById('sr-meta').textContent = `Contract: ${val.slice(0,10)}...${val.slice(-6)}`;
+        document.getElementById('sr-mcap').textContent = 'Manual verification required';
+      } else {
+        result.style.display = 'none';
+      }
+    } catch(e) {
+      // Fallback to mock data
+      const mockVal = val.toUpperCase();
+      const token = MOCK_TOKENS[mockVal];
+      if (token) {
+        result.style.display = 'block';
+        document.getElementById('sr-icon').style.background = `linear-gradient(135deg,${token.color})`;
+        document.getElementById('sr-icon').textContent = token.icon;
+        document.getElementById('sr-name').textContent = `${mockVal} (${token.name})`;
+        document.getElementById('sr-meta').textContent = `Rank #${token.rank}`;
+        document.getElementById('sr-mcap').textContent = token.mcap;
+        document.getElementById('sr-sources').textContent = `${token.sources} sources`;
+        document.getElementById('sr-leverage').textContent = `Up to ${token.maxLev}x`;
+      } else {
+        result.style.display = 'none';
+      }
+    }
+  }, 400); // debounce 400ms
+});
+
+// ─── Derived Parameter Calculation ───
+function selectMMOption(opt) {
+  const cards = event.target.closest('.card').parentElement.querySelectorAll('.card');
+  cards.forEach(c => { c.style.border = '2px solid transparent'; c.style.background = ''; });
+  event.target.closest('.card').style.border = '2px solid var(--purple)';
+  event.target.closest('.card').style.background = 'rgba(98,25,253,0.05)';
+  document.getElementById('mm-self-guide').style.display = opt === 'self' ? 'block' : 'none';
+}
+
+let selectedVolume = 500000;
+function setVolume(vol) {
+  selectedVolume = vol;
+  document.querySelectorAll('.vol-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  updateRevenue();
+}
+function updateRevenue() {
+  const takerBps = parseInt(document.getElementById('cfg-taker-fee')?.value || 2);
+  const makerBps = parseInt(document.getElementById('cfg-maker-fee')?.value || 0);
+  // Assume 70% taker / 30% maker split of volume
+  const dailyGross = selectedVolume * 0.7 * (takerBps / 10000) + selectedVolume * 0.3 * (makerBps / 10000);
+  const dailyYou = dailyGross * 0.3; // 30% lister share
+  const monthly = dailyYou * 30;
+  const annual = dailyYou * 365;
+  const roi = (annual / 50000 * 100);
+  const paybackYears = 50000 / annual;
+  
+  const fmt = (n) => n >= 1000 ? '$' + (n/1000).toFixed(1).replace(/\.0$/,'') + 'K' : '$' + Math.round(n);
+  
+  const el = (id) => document.getElementById(id);
+  if (el('rev-daily')) el('rev-daily').textContent = fmt(dailyYou);
+  if (el('rev-monthly')) el('rev-monthly').textContent = fmt(monthly);
+  if (el('rev-annual')) el('rev-annual').textContent = fmt(annual);
+  if (el('rev-roi')) el('rev-roi').textContent = roi.toFixed(1) + '%';
+  if (el('rev-payback')) el('rev-payback').textContent = paybackYears < 1 ? 'Payback: ' + Math.round(paybackYears * 12) + ' months' : 'Payback: ' + paybackYears.toFixed(1) + ' years';
+  if (el('rev-total-roi')) el('rev-total-roi').textContent = '~' + Math.round(roi + 18) + '%';
+}
+
+function updateDerived() {
+  const lev = parseInt(document.getElementById('cfg-leverage').value);
+  const imr = (100 / lev).toFixed(1);
+  let mmr;
+  if (lev === 10) mmr = '5'; // simplified, could be 6% for <$100M
+  else mmr = (100 / lev / 2).toFixed(1);
+  
+  const priceRange = lev >= 20 ? '3' : '5';
+  const liqFee = lev >= 20 ? '1.5' : '2.4';
+  
+  // IF Rate (simplified for T1 >$1B at different leverages)
+  let ifRate;
+  if (lev <= 5) ifRate = '4.5';
+  else if (lev <= 10) ifRate = '3.6';
+  else ifRate = '3.0';
+  
+  let liqRate;
+  if (lev <= 5) liqRate = '2.5';
+  else if (lev <= 10) liqRate = '2.0';
+  else liqRate = '1.5';
+
+  document.getElementById('derived-params').innerHTML = `
+    <div><span style="color:var(--text2)">IMR:</span> <strong>${imr}%</strong></div>
+    <div><span style="color:var(--text2)">MMR:</span> <strong>${mmr}%</strong></div>
+    <div><span style="color:var(--text2)">Price Range:</span> <strong>${priceRange}%</strong></div>
+    <div><span style="color:var(--text2)">Liq Fee:</span> <strong>${liqFee}%</strong></div>
+    <div><span style="color:var(--text2)">IF Rate:</span> <strong>${ifRate}%</strong></div>
+    <div><span style="color:var(--text2)">Liq Rate:</span> <strong>${liqRate}%</strong></div>
+  `;
+}
+
+// ─── Approval & Submit ───
+function approveUSDC() {
+  const btn = document.getElementById('btn-approve');
+  btn.textContent = '⏳ Approving...';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = '✅ Approved';
+    document.getElementById('btn-submit').disabled = false;
+  }, 2000);
+}
+
+function submitListing() {
+  const acks = ['ack-risk', 'ack-terms', 'ack-if'];
+  if (!acks.every(id => document.getElementById(id).checked)) {
+    alert('Please check all acknowledgment boxes.');
+    return;
+  }
+  document.getElementById('btn-submit').textContent = '⏳ Submitting...';
+  document.getElementById('btn-submit').disabled = true;
+  setTimeout(() => {
+    document.getElementById('success-modal').style.display = 'flex';
+  }, 2000);
+}
+
+function closeModal() {
+  document.getElementById('success-modal').style.display = 'none';
+}
+
+// ─── Deposit List Toggle ───
+function toggleDepositList() {
+  const list = document.getElementById('deposit-list');
+  const arrow = document.getElementById('deposit-arrow');
+  if (list.style.display === 'none') {
+    list.style.display = 'flex';
+    arrow.style.transform = 'rotate(90deg)';
+  } else {
+    list.style.display = 'none';
+    arrow.style.transform = '';
+  }
+}
+
+function toggleMMList() {
+  const list = document.getElementById('mm-list');
+  const arrow = document.getElementById('mm-arrow');
+  if (list.style.display === 'none') { list.style.display = 'flex'; arrow.style.transform = 'rotate(90deg)'; }
+  else { list.style.display = 'none'; arrow.style.transform = ''; }
+}
+
+// ─── Manage Deposit Modal ───
+let manageData = {};
+function openManageModal(symbol, current, min, yield_) {
+  manageData = { symbol, current, min, yield: yield_ };
+  document.getElementById('manage-title').textContent = symbol + ' — Manage Deposit';
+  document.getElementById('manage-current').textContent = '$' + current.toLocaleString();
+  document.getElementById('manage-min').textContent = '$' + min.toLocaleString();
+  document.getElementById('manage-yield').textContent = '+$' + yield_.toLocaleString() + '/mo';
+  document.getElementById('manage-w-current').textContent = '$' + current.toLocaleString();
+  document.getElementById('manage-w-min').textContent = '$' + min.toLocaleString();
+  document.getElementById('manage-w-avail').textContent = '$' + (current - min).toLocaleString();
+  document.getElementById('manage-amount').value = '';
+  document.getElementById('manage-w-amount').value = '';
+  document.getElementById('manage-new-total').textContent = '—';
+  document.getElementById('manage-new-yield').textContent = '—';
+  document.getElementById('manage-deposit-btn').disabled = true;
+  switchManageTab('deposit');
+  document.getElementById('manage-modal').style.display = 'flex';
+}
+function closeManageModal() { document.getElementById('manage-modal').style.display = 'none'; }
+function switchManageTab(tab) {
+  document.getElementById('manage-deposit-tab').style.display = tab === 'deposit' ? 'block' : 'none';
+  document.getElementById('manage-withdraw-tab').style.display = tab === 'withdraw' ? 'block' : 'none';
+  document.getElementById('manage-tab-deposit').className = 'btn btn-sm ' + (tab === 'deposit' ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('manage-tab-withdraw').className = 'btn btn-sm ' + (tab === 'withdraw' ? 'btn-primary' : 'btn-secondary');
+}
+function updateManagePreview() {
+  const amt = parseInt(document.getElementById('manage-amount').value.replace(/,/g,'')) || 0;
+  if (amt > 0) {
+    const newTotal = manageData.current + amt;
+    const newYield = Math.round(manageData.yield * (newTotal / manageData.current));
+    document.getElementById('manage-new-total').textContent = '$' + newTotal.toLocaleString();
+    document.getElementById('manage-new-yield').textContent = '+$' + newYield.toLocaleString() + '/mo';
+  } else {
+    document.getElementById('manage-new-total').textContent = '—';
+    document.getElementById('manage-new-yield').textContent = '—';
+  }
+}
+function simulateApprove(btn) {
+  btn.textContent = '⏳ Approving...';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.textContent = '✅ Approved';
+    document.getElementById('manage-deposit-btn').disabled = false;
+  }, 1500);
+}
+function simulateDeposit() {
+  const btn = document.getElementById('manage-deposit-btn');
+  btn.textContent = '⏳ Depositing...';
+  btn.disabled = true;
+  setTimeout(() => {
+    closeManageModal();
+    showToast('✅ Deposit successful! Your listing deposit has been updated.');
+  }, 2000);
+}
+function simulateWithdraw() {
+  const btn = event.target;
+  btn.textContent = '⏳ Submitting...';
+  btn.disabled = true;
+  setTimeout(() => {
+    closeManageModal();
+    showToast('⏳ Withdrawal request submitted. 7-day notice period starts now.');
+  }, 1500);
+}
+
+// ─── Fee Withdraw Modal ───
+function openFeeModal() { document.getElementById('fee-modal').style.display = 'flex'; }
+function closeFeeModal() { document.getElementById('fee-modal').style.display = 'none'; }
+function simulateFeeWithdraw() {
+  const btn = event.target;
+  btn.textContent = '⏳ Withdrawing...';
+  btn.disabled = true;
+  setTimeout(() => {
+    closeFeeModal();
+    showToast('✅ Fee revenue withdrawn to your wallet!');
+  }, 1500);
+}
+
+// ─── Toast Notifications ───
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--border);padding:16px 20px;border-radius:12px;font-size:13px;color:var(--text);z-index:2000;animation:fadeIn .3s ease;box-shadow:0 8px 32px rgba(0,0,0,0.3);max-width:400px';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 4000);
+}
+</script>
+</body>
+</html>
