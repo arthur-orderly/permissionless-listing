@@ -1,0 +1,177 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+body{font-family:system-ui,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;font-size:14px;line-height:1.6;color:#222}
+h1{font-size:24px;border-bottom:2px solid #333;padding-bottom:8px}
+h2{font-size:18px;color:#444;border-bottom:1px solid #ddd;padding-bottom:4px}
+h3{font-size:16px;color:#555}
+table{border-collapse:collapse;width:100%;margin:16px 0}
+th,td{border:1px solid #ccc;padding:8px;text-align:left;font-size:13px}
+th{background:#f5f5f5;font-weight:600}
+code{background:#f4f4f4;padding:2px 4px;border-radius:3px;font-size:13px}
+hr{border:none;border-top:1px solid #ddd;margin:24px 0}
+strong{color:#111}
+ol,ul{padding-left:24px}
+</style></head><body><h1>Orderly Permissionless Listing System</h1>
+<h2>Technical Proposal &amp; Reference Implementation</h2>
+<p><strong>Prepared by:</strong> Arthur DEX (arthur-orderly)
+<strong>Date:</strong> February 8, 2026
+<strong>Version:</strong> 2.0</p>
+<hr />
+<h3>Executive Summary</h3>
+<p>We've built a complete reference implementation for Orderly's permissionless listing system — production-ready smart contracts, a polished frontend with interactive workflows, and comprehensive test coverage. This document covers the major v2.0 updates: unified capital model, graduated enforcement, revenue calculator, and full account management.</p>
+<h3>Problem Statement</h3>
+<ul>
+<li>Orderly currently requires a manual listing process for new perpetual futures pairs</li>
+<li>This limits the speed of new market launches and creates a bottleneck</li>
+<li>Permissionless listing enables any qualified entity to list new perp markets, dramatically expanding Orderly's market coverage</li>
+<li><strong>Orderly as "Shopify for perp listings"</strong> — lower barrier ($50-100K vs HyperLiquid's $14M HIP-3 stake), more guardrails</li>
+</ul>
+<h3>Solution Architecture</h3>
+<h4>Smart Contracts (Arbitrum, Solidity 0.8.24, Foundry)</h4>
+<ol>
+<li>
+<p><strong>ListingRegistry</strong> — UUPS upgradeable core registry. Manages listing lifecycle (Pending → Active → Suspended → Deactivated). Role-based access control (LISTER, ADMIN, ORACLE).</p>
+</li>
+<li>
+<p><strong>ListingStake</strong> — Single deposit mechanism requiring $50,000 USDC minimum with 6-month lock. Covers bond + insurance + liquidation in one deposit. Three slashing tiers: 100% (rug pull), 50% (abandonment), variable 0-50% (manipulation).</p>
+</li>
+<li>
+<p><strong>FeeVault</strong> — Fee collection and distribution with configurable splits (default: 50% protocol, 30% lister, 20% insurance fund).</p>
+</li>
+<li>
+<p><strong>SlashingOracle</strong> — Decentralized governance for slashing decisions. 3-of-5 multisig with mandatory 48-hour timelock.</p>
+</li>
+<li>
+<p><strong>ListingLib</strong> — Pure library implementing parameter derivation: leverage caps by market cap tier (&lt;$30M→5x, $30-100M→10x, &gt;$100M→20x), IMR/MMR calculation, funding rate bounds.</p>
+</li>
+</ol>
+<h4>Frontend Application</h4>
+<p><strong>5-Step Listing Wizard:</strong>
+1. <strong>Token Selection</strong> — CoinGecko-powered live search with real market cap data, auto-calculates leverage tier
+2. <strong>Risk Parameters</strong> — IMR/MMR, funding rate, position limits — auto-derived from market cap
+3. <strong>Fees &amp; Revenue</strong> — Interactive revenue calculator: volume selector ($50K-$10M/day), real-time daily/monthly/annual revenue, ROI on deposit, payback period
+4. <strong>Market Maker Setup</strong> — "Run Your Own" vs "Partner with MM Firm", Arthur SDK code snippets, capital requirements ($10K min / $50K recommended / 20-50% APR target)
+5. <strong>Deposit &amp; Confirm</strong> — Single listing deposit with yield (~18% APR), review all parameters</p>
+<p><strong>Dashboard &amp; Monitoring:</strong>
+- Unified "My Listings" page with risk gauges (Deposit Coverage, Liquidation Runway, Orderbook Quality)
+- Health column with enforcement ladder mapping (L1-L5 prefixes)
+- Real-time alerts for threshold proximity
+- Problem rows highlighted in orange/red</p>
+<p><strong>Account Management:</strong>
+- Collapsible Listing Deposits section (per-listing breakdown, manage deposit modal with deposit/withdraw tabs)
+- Fee Revenue tracking with withdraw modal
+- Collapsible MM Accounts section
+- Toast notifications for all actions</p>
+<p><strong>Graduated Enforcement Ladder (5 levels):</strong>
+1. 📢 <strong>L1 — Alert:</strong> Warning notification to lister
+2. ⏳ <strong>L2 — Grace Period:</strong> 24-hour window to fix issues
+3. 📉 <strong>L3 — Reduce Risk:</strong> Automatic leverage reduction
+4. ⛔ <strong>L4 — Pause Trading:</strong> Close-only mode
+5. 🗳️ <strong>L5 — Governance:</strong> Slash vote + potential delist</p>
+<p><em>Philosophy: Depth/liquidity issues are operational (MM crashed, ran out of capital), not malicious. Automated ladder handles operations; slashing reserved for malicious behavior via governance.</em></p>
+<h3>Key Design Decisions (v2.0)</h3>
+<ul>
+<li><strong>Unified Deposit Model:</strong> Merged Bond + Safety &amp; Liquidation Fund into single "Listing Deposit" per listing — one deposit covers all purposes, earns yield, higher deposit = higher max OI. Inspired by HyperLiquid HIP-3 (one stake, multiple purposes). Total capital: ~$100K ($50K deposit + $50K MM capital)</li>
+<li><strong>Graduated Enforcement over Immediate Slashing:</strong> Operational issues get automated escalation; slashing only for malicious actors</li>
+<li><strong>Revenue Calculator in Wizard:</strong> Listers see ROI before committing capital — reduces friction, increases confidence</li>
+<li><strong>MM Onboarding Built-In:</strong> Arthur SDK integration guide directly in the wizard reduces time-to-market</li>
+<li><strong>UUPS Proxy Pattern:</strong> Allows contract upgrades as system evolves</li>
+<li><strong>Conservative Defaults:</strong> $50K minimum deposit, 6-month lock, 48hr timelock — erring on security</li>
+</ul>
+<h3>Parameter Derivation</h3>
+<p>Key formulas implemented in <code>ListingLib.sol</code>:</p>
+<ul>
+<li><strong>Leverage:</strong> <code>min(tier_max, floor(1/base_imr))</code></li>
+<li><strong>IMR tiers:</strong> &lt;$30M mcap → 20% (5x), $30-100M → 10% (10x), &gt;$100M → 5% (20x)</li>
+<li><strong>MMR:</strong> <code>IMR / 2</code> (with 6% exception for certain tiers)</li>
+<li><strong>Fee bounds:</strong> Taker markup 0-5bps, Maker markup 0-2bps</li>
+<li>~20 parameters auto-derived from just 5 inputs (token address, target leverage, fee preferences, market cap, desired spread)</li>
+</ul>
+<h3>Security</h3>
+<ul>
+<li>Checks-Effects-Interactions pattern throughout</li>
+<li>Reentrancy guards on all external calls</li>
+<li>Role-based access with granular permissions</li>
+<li>48-hour timelock on all slashing actions</li>
+<li>USDC approval pattern (approve → transferFrom)</li>
+<li><strong>20 unit tests</strong> covering edge cases, access control, math precision, all passing</li>
+</ul>
+<h3>Integration with Orderly Backend</h3>
+<ol>
+<li>Lister stakes on-chain → <code>ListingCreated</code> event emitted</li>
+<li>Orderly backend listens for events via indexer</li>
+<li>Backend validates parameters and enables the trading pair</li>
+<li>Ongoing: backend monitors MM activity, feeds enforcement ladder</li>
+<li>Fee markups applied at matching engine level, collected on-chain via FeeVault</li>
+</ol>
+<h3>HyperLiquid HIP-3 Comparison</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Orderly (This Proposal)</th>
+<th>HyperLiquid HIP-3</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Minimum Stake</strong></td>
+<td>$50,000 USDC</td>
+<td>~$14M (2M HYPE)</td>
+</tr>
+<tr>
+<td><strong>Lock Period</strong></td>
+<td>6 months</td>
+<td>Indefinite</td>
+</tr>
+<tr>
+<td><strong>Enforcement</strong></td>
+<td>5-level graduated ladder</td>
+<td>Immediate delist</td>
+</tr>
+<tr>
+<td><strong>MM Requirement</strong></td>
+<td>Guided (SDK + partners)</td>
+<td>Required, unguided</td>
+</tr>
+<tr>
+<td><strong>Revenue Share</strong></td>
+<td>30% to lister</td>
+<td>0% to lister</td>
+</tr>
+<tr>
+<td><strong>Barrier to Entry</strong></td>
+<td>Accessible</td>
+<td>Whale-only</td>
+</tr>
+</tbody>
+</table>
+<h3>Deliverables</h3>
+<ol>
+<li>✅ Smart contracts (Foundry, 5 contracts, Solidity 0.8.24)</li>
+<li>✅ Full test suite (20 tests, all passing)</li>
+<li>✅ Frontend application with interactive workflows (deployed to Vercel)</li>
+<li>✅ Deployment scripts for Arbitrum</li>
+<li>✅ Documentation &amp; this proposal</li>
+</ol>
+<h3>Open Questions</h3>
+<ol>
+<li><strong>Market Maker Requirement</strong> — Spec marks as TBD. Our implementation supports optional MM account with Arthur SDK integration guide. Recommend: minimum quote obligation.</li>
+<li><strong>Oracle Data Source</strong> — Market cap tier needs reliable oracle (Chainlink, Pyth, or Orderly price feeds). Currently admin-set.</li>
+<li><strong>Cross-Chain Support</strong> — Current implementation Arbitrum-only. Multi-chain needs cross-chain messaging.</li>
+<li><strong>Deposit Yield Source</strong> — Current ~18% APR assumes protocol revenue allocation. Needs treasury/governance approval.</li>
+</ol>
+<h3>Proposed Next Steps</h3>
+<ol>
+<li><strong>Review:</strong> Orderly engineering team reviews contracts and architecture</li>
+<li><strong>Audit:</strong> Professional smart contract audit (Trail of Bits or OpenZeppelin recommended)</li>
+<li><strong>Testnet Deploy:</strong> Arbitrum Sepolia for integration testing</li>
+<li><strong>Backend Integration:</strong> Connect on-chain events to Orderly matching engine</li>
+<li><strong>Mainnet Launch:</strong> Target March 2026 per roadmap</li>
+</ol>
+<h3>Links</h3>
+<ul>
+<li><strong>GitHub:</strong> <a href="https://github.com/arthur-orderly/permissionless-listing">github.com/arthur-orderly/permissionless-listing</a></li>
+<li><strong>Frontend Demo:</strong> <a href="https://orderly-permissionless-listing-arthurs-projects-80466810.vercel.app">orderly-permissionless-listing-arthurs-projects-80466810.vercel.app</a></li>
+<li><strong>Arthur DEX:</strong> <a href="https://arthurdex.com">arthurdex.com</a></li>
+<li><strong>Arthur SDK:</strong> <a href="https://pypi.org/project/arthur-sdk/">pypi.org/project/arthur-sdk</a></li>
+</ul></body></html>

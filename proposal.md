@@ -3,48 +3,73 @@
 
 **Prepared by:** Arthur DEX (arthur-orderly)
 **Date:** February 8, 2026
-**Version:** 1.0
+**Version:** 2.0
 
 ---
 
 ### Executive Summary
 
-We've built a complete reference implementation for Orderly's permissionless listing system based on the published specifications. This includes production-ready smart contracts, a full frontend, and comprehensive test coverage. We propose this as either the official implementation or a starting point for Orderly's engineering team.
+We've built a complete reference implementation for Orderly's permissionless listing system — production-ready smart contracts, a polished frontend with interactive workflows, and comprehensive test coverage. This document covers the major v2.0 updates: unified capital model, graduated enforcement, revenue calculator, and full account management.
 
 ### Problem Statement
 
 - Orderly currently requires a manual listing process for new perpetual futures pairs
 - This limits the speed of new market launches and creates a bottleneck
 - Permissionless listing enables any qualified entity to list new perp markets, dramatically expanding Orderly's market coverage
+- **Orderly as "Shopify for perp listings"** — lower barrier ($50-100K vs HyperLiquid's $14M HIP-3 stake), more guardrails
 
 ### Solution Architecture
 
-#### Smart Contracts (Arbitrum)
+#### Smart Contracts (Arbitrum, Solidity 0.8.24, Foundry)
 
 1. **ListingRegistry** — UUPS upgradeable core registry. Manages listing lifecycle (Pending → Active → Suspended → Deactivated). Role-based access control (LISTER, ADMIN, ORACLE).
 
-2. **ListingStake** — Staking mechanism requiring $50,000 USDC minimum with 6-month lock period. Implements three slashing tiers from the spec: 100% (rug pull), 50% (abandonment), variable 0-50% (manipulation).
+2. **ListingStake** — Single deposit mechanism requiring $50,000 USDC minimum with 6-month lock. Covers bond + insurance + liquidation in one deposit. Three slashing tiers: 100% (rug pull), 50% (abandonment), variable 0-50% (manipulation).
 
 3. **FeeVault** — Fee collection and distribution with configurable splits (default: 50% protocol, 30% lister, 20% insurance fund).
 
-4. **SlashingOracle** — Decentralized governance for slashing decisions. 3-of-5 multisig with mandatory 48-hour timelock between proposal and execution.
+4. **SlashingOracle** — Decentralized governance for slashing decisions. 3-of-5 multisig with mandatory 48-hour timelock.
 
-5. **ListingLib** — Pure library implementing all parameter derivation from the spec, including leverage caps by market cap tier (<$30M→5x, $30-100M→10x, >$100M→20x), IMR/MMR calculation, funding rate bounds.
+5. **ListingLib** — Pure library implementing parameter derivation: leverage caps by market cap tier (<$30M→5x, $30-100M→10x, >$100M→20x), IMR/MMR calculation, funding rate bounds.
 
 #### Frontend Application
 
-- 4-step listing wizard matching the Configuration UX Flow spec
-- Real-time dashboard with listing status, volume, and risk metrics
-- Risk monitor with automated alerts for slashing threshold proximity
-- Admin panel for multisig governance participants
-- WalletConnect integration on Arbitrum
+**5-Step Listing Wizard:**
+1. **Token Selection** — CoinGecko-powered live search with real market cap data, auto-calculates leverage tier
+2. **Risk Parameters** — IMR/MMR, funding rate, position limits — auto-derived from market cap
+3. **Fees & Revenue** — Interactive revenue calculator: volume selector ($50K-$10M/day), real-time daily/monthly/annual revenue, ROI on deposit, payback period
+4. **Market Maker Setup** — "Run Your Own" vs "Partner with MM Firm", Arthur SDK code snippets, capital requirements ($10K min / $50K recommended / 20-50% APR target)
+5. **Deposit & Confirm** — Single listing deposit with yield (~18% APR), review all parameters
 
-#### Key Design Decisions
+**Dashboard & Monitoring:**
+- Unified "My Listings" page with risk gauges (Deposit Coverage, Liquidation Runway, Orderbook Quality)
+- Health column with enforcement ladder mapping (L1-L5 prefixes)
+- Real-time alerts for threshold proximity
+- Problem rows highlighted in orange/red
 
-- **UUPS Proxy Pattern:** Allows contract upgrades as the system evolves, critical for a V1 launch
-- **Separation of Concerns:** Staking, registry, fees, and governance in separate contracts for security isolation
-- **Conservative Defaults:** Minimum $50K stake, 6-month lock, 48hr timelock — all erring on the side of security
-- **Spec Compliance:** All parameter derivations (leverage caps, IMR/MMR, fee bounds) follow the published specifications exactly
+**Account Management:**
+- Collapsible Listing Deposits section (per-listing breakdown, manage deposit modal with deposit/withdraw tabs)
+- Fee Revenue tracking with withdraw modal
+- Collapsible MM Accounts section
+- Toast notifications for all actions
+
+**Graduated Enforcement Ladder (5 levels):**
+1. 📢 **L1 — Alert:** Warning notification to lister
+2. ⏳ **L2 — Grace Period:** 24-hour window to fix issues
+3. 📉 **L3 — Reduce Risk:** Automatic leverage reduction
+4. ⛔ **L4 — Pause Trading:** Close-only mode
+5. 🗳️ **L5 — Governance:** Slash vote + potential delist
+
+*Philosophy: Depth/liquidity issues are operational (MM crashed, ran out of capital), not malicious. Automated ladder handles operations; slashing reserved for malicious behavior via governance.*
+
+### Key Design Decisions (v2.0)
+
+- **Unified Deposit Model:** Merged Bond + Safety & Liquidation Fund into single "Listing Deposit" per listing — one deposit covers all purposes, earns yield, higher deposit = higher max OI. Inspired by HyperLiquid HIP-3 (one stake, multiple purposes). Total capital: ~$100K ($50K deposit + $50K MM capital)
+- **Graduated Enforcement over Immediate Slashing:** Operational issues get automated escalation; slashing only for malicious actors
+- **Revenue Calculator in Wizard:** Listers see ROI before committing capital — reduces friction, increases confidence
+- **MM Onboarding Built-In:** Arthur SDK integration guide directly in the wizard reduces time-to-market
+- **UUPS Proxy Pattern:** Allows contract upgrades as system evolves
+- **Conservative Defaults:** $50K minimum deposit, 6-month lock, 48hr timelock — erring on security
 
 ### Parameter Derivation
 
@@ -56,60 +81,60 @@ Key formulas implemented in `ListingLib.sol`:
 - **Fee bounds:** Taker markup 0-5bps, Maker markup 0-2bps
 - ~20 parameters auto-derived from just 5 inputs (token address, target leverage, fee preferences, market cap, desired spread)
 
-### Security Considerations
+### Security
 
-- All contracts follow Checks-Effects-Interactions pattern
+- Checks-Effects-Interactions pattern throughout
 - Reentrancy guards on all external calls
 - Role-based access with granular permissions
-- Timelock on all slashing actions prevents rushed/malicious slashes
-- USDC approval pattern (approve → transferFrom) for stake deposits
-- Comprehensive test suite: 20 tests covering edge cases, access control, math precision
+- 48-hour timelock on all slashing actions
+- USDC approval pattern (approve → transferFrom)
+- **20 unit tests** covering edge cases, access control, math precision, all passing
 
 ### Integration with Orderly Backend
 
-How the on-chain layer connects to Orderly's existing infrastructure:
-
 1. Lister stakes on-chain → `ListingCreated` event emitted
 2. Orderly backend listens for events via indexer
-3. Backend validates parameters and enables the trading pair on the orderbook
-4. Ongoing: backend monitors MM activity, reports to SlashingOracle if abandonment detected
-5. Fee markups applied at the matching engine level, collected on-chain via FeeVault
+3. Backend validates parameters and enables the trading pair
+4. Ongoing: backend monitors MM activity, feeds enforcement ladder
+5. Fee markups applied at matching engine level, collected on-chain via FeeVault
 
-### Test Results
+### HyperLiquid HIP-3 Comparison
 
-- **20 unit tests**, all passing
-- **Coverage:** listing lifecycle, slashing scenarios (all 3 tiers), fee distribution math, governance flow, access control, parameter validation
-- **Gas estimates** for key operations included in test output
+| | Orderly (This Proposal) | HyperLiquid HIP-3 |
+|---|---|---|
+| **Minimum Stake** | $50,000 USDC | ~$14M (2M HYPE) |
+| **Lock Period** | 6 months | Indefinite |
+| **Enforcement** | 5-level graduated ladder | Immediate delist |
+| **MM Requirement** | Guided (SDK + partners) | Required, unguided |
+| **Revenue Share** | 30% to lister | 0% to lister |
+| **Barrier to Entry** | Accessible | Whale-only |
 
 ### Deliverables
 
-1. ✅ Smart contracts (Foundry project, Solidity 0.8.24)
-2. ✅ Full test suite (20 tests)
-3. ✅ Frontend application (deployed to Vercel)
+1. ✅ Smart contracts (Foundry, 5 contracts, Solidity 0.8.24)
+2. ✅ Full test suite (20 tests, all passing)
+3. ✅ Frontend application with interactive workflows (deployed to Vercel)
 4. ✅ Deployment scripts for Arbitrum
-5. ✅ Documentation
+5. ✅ Documentation & this proposal
 
-### Open Questions / Gaps in Current Spec
+### Open Questions
 
-1. **Market Maker Requirement (Section 3.3)** — Spec marks this as TBD. Our implementation supports an optional MM account requirement but doesn't enforce specific MM behavior. Recommend: require lister to designate an MM account with minimum quote obligation.
-
-2. **Broker-Specific Configurations (Section 6)** — Currently empty in spec. Each broker may want custom parameters. Our system supports per-listing parameter overrides.
-
-3. **Oracle Data Source** — For market cap tier determination, need a reliable oracle (Chainlink, Pyth, or Orderly's own price feeds). Current implementation uses admin-set values.
-
-4. **Cross-Chain Support** — Current implementation is Arbitrum-only. Multi-chain deployment would need cross-chain messaging (LayerZero, CCIP).
+1. **Market Maker Requirement** — Spec marks as TBD. Our implementation supports optional MM account with Arthur SDK integration guide. Recommend: minimum quote obligation.
+2. **Oracle Data Source** — Market cap tier needs reliable oracle (Chainlink, Pyth, or Orderly price feeds). Currently admin-set.
+3. **Cross-Chain Support** — Current implementation Arbitrum-only. Multi-chain needs cross-chain messaging.
+4. **Deposit Yield Source** — Current ~18% APR assumes protocol revenue allocation. Needs treasury/governance approval.
 
 ### Proposed Next Steps
 
 1. **Review:** Orderly engineering team reviews contracts and architecture
-2. **Audit:** Professional smart contract audit (recommend Trail of Bits or OpenZeppelin)
-3. **Testnet Deploy:** Deploy to Arbitrum Sepolia for integration testing
-4. **Backend Integration:** Connect on-chain events to Orderly's matching engine
-5. **Mainnet Launch:** Target March 2026 per Orderly's roadmap
+2. **Audit:** Professional smart contract audit (Trail of Bits or OpenZeppelin recommended)
+3. **Testnet Deploy:** Arbitrum Sepolia for integration testing
+4. **Backend Integration:** Connect on-chain events to Orderly matching engine
+5. **Mainnet Launch:** Target March 2026 per roadmap
 
 ### Links
 
 - **GitHub:** [github.com/arthur-orderly/permissionless-listing](https://github.com/arthur-orderly/permissionless-listing)
-- **Frontend Demo:** [orderly-permissionless-listing.vercel.app](https://orderly-permissionless-listing.vercel.app)
-- **Mockup (earlier version):** [permissionless-listing-mockup.vercel.app](https://permissionless-listing-mockup.vercel.app)
+- **Frontend Demo:** [orderly-permissionless-listing-arthurs-projects-80466810.vercel.app](https://orderly-permissionless-listing-arthurs-projects-80466810.vercel.app)
 - **Arthur DEX:** [arthurdex.com](https://arthurdex.com)
+- **Arthur SDK:** [pypi.org/project/arthur-sdk](https://pypi.org/project/arthur-sdk/)
